@@ -54,6 +54,9 @@ def test_extract_commands():
         ("/usr/bin/node script.js", ["node"]),
         ("VAR=value ls", ["ls"]),
         ("git status || git init", ["git", "git"]),
+        ("python app.py", ["python"]),
+        ("pytest tests/ && coverage report", ["pytest", "coverage"]),
+        ("docker-compose up -d", ["docker-compose"]),
     ]
 
     for cmd, expected in test_cases:
@@ -185,7 +188,6 @@ def main():
         # Not in allowlist - common commands excluded from minimal set
         "curl https://example.com",
         "wget https://example.com",
-        "python app.py",
         "touch file.txt",
         "echo hello",
         "kill 12345",
@@ -193,7 +195,7 @@ def main():
         # pkill with non-dev processes
         "pkill bash",
         "pkill chrome",
-        "pkill python",
+        "pkill postgres",
         # Shell injection attempts
         "$(echo pkill) node",
         'eval "pkill node"',
@@ -231,7 +233,30 @@ def main():
         "mkdir -p path/to/dir",
         # Directory
         "pwd",
-        # Node.js development
+        # Python development
+        "python app.py",
+        "python3 manage.py runserver",
+        "pip install -r requirements.txt",
+        "pip3 install fastapi",
+        # Testing
+        "pytest tests/",
+        "pytest -v tests/api/",
+        "coverage run -m pytest",
+        "coverage report",
+        # FastAPI server
+        "uvicorn app.main:app --reload",
+        "uvicorn app.main:app --host 0.0.0.0 --port 8000",
+        # Database tools
+        "alembic upgrade head",
+        "alembic revision --autogenerate -m 'msg'",
+        "docker ps",
+        "docker-compose up -d",
+        "docker-compose down",
+        # Linting/formatting
+        "ruff check .",
+        "black .",
+        "mypy app/",
+        # Node.js development (kept for tooling)
         "npm install",
         "npm run build",
         "node server.js",
@@ -249,11 +274,18 @@ def main():
         "pkill -f node",
         "pkill -f 'node server.js'",
         "pkill vite",
+        "pkill python",
+        "pkill python3",
+        "pkill uvicorn",
+        "pkill -f uvicorn",
+        "pkill pytest",
         # Chained commands
         "npm install && npm run build",
+        "pytest tests/ && coverage report",
         "ls | grep test",
         # Full paths
         "/usr/local/bin/node app.js",
+        "/usr/bin/python3 app.py",
         # chmod +x (allowed)
         "chmod +x init.sh",
         "chmod +x script.sh",

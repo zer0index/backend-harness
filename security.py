@@ -26,7 +26,25 @@ ALLOWED_COMMANDS = {
     "chmod",  # For making scripts executable; validated separately
     # Directory
     "pwd",
-    # Node.js development
+    # Python development
+    "python",
+    "python3",
+    "pip",
+    "pip3",
+    # Testing
+    "pytest",
+    "coverage",
+    # FastAPI server
+    "uvicorn",
+    # Database tools
+    "alembic",
+    "docker",
+    "docker-compose",
+    # Optional: linting/formatting
+    "ruff",
+    "black",
+    "mypy",
+    # Node.js development (kept for potential tooling needs)
     "npm",
     "node",
     # Version control
@@ -169,11 +187,18 @@ def validate_pkill_command(command_string: str) -> tuple[bool, str]:
     """
     # Allowed process names for pkill
     allowed_process_names = {
+        # Node.js processes
         "node",
         "npm",
         "npx",
         "vite",
         "next",
+        # Python processes
+        "python",
+        "python3",
+        "uvicorn",
+        "gunicorn",
+        "pytest",
     }
 
     try:
