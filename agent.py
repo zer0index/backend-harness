@@ -13,7 +13,7 @@ from claude_code_sdk import ClaudeSDKClient
 
 from client import create_client
 from progress import print_session_header, print_progress_summary
-from prompts import get_initializer_prompt, get_coding_prompt, copy_spec_to_project
+from prompts import get_initializer_prompt, get_coding_prompt, copy_spec_to_project, copy_templates_to_project
 
 
 # Configuration
@@ -138,6 +138,8 @@ async def run_autonomous_agent(
         print()
         # Copy the app spec into the project directory for the agent to read
         copy_spec_to_project(project_dir)
+        # Copy template files so the agent can use them
+        copy_templates_to_project(project_dir)
     else:
         print("Continuing existing project")
         print_progress_summary(project_dir)

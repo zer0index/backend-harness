@@ -26,10 +26,7 @@ cp example_specs/todo_list.txt prompts/app_spec.txt
 ### Step 2: Run with Small Configuration
 
 ```bash
-python autonomous_agent_demo.py \
-  --project-dir ./test_todo \
-  --config small \
-  --max-iterations 3
+python autonomous_agent_demo.py --project-dir ./test_todo --config small --max-iterations 3
 ```
 
 **What this does:**

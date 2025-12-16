@@ -110,3 +110,17 @@ def copy_spec_to_project(project_dir: Path) -> None:
     if not spec_dest.exists():
         shutil.copy(spec_source, spec_dest)
         print("Copied app_spec.txt to project directory")
+
+
+def copy_templates_to_project(project_dir: Path) -> None:
+    """Copy template files into the project directory for the agent to use."""
+    templates_source = PROMPTS_DIR / "templates"
+    templates_dest = project_dir / "prompts" / "templates"
+
+    if templates_source.exists() and not templates_dest.exists():
+        # Create the prompts directory structure in the project
+        templates_dest.parent.mkdir(parents=True, exist_ok=True)
+
+        # Copy the entire templates directory
+        shutil.copytree(templates_source, templates_dest)
+        print("Copied template files to project directory")
