@@ -1,0 +1,23 @@
+{
+  "app_size": "medium",
+  "description": "Standard application (e.g., Task Management, Blog, Inventory System)",
+
+  "test_spec": {
+    "min_tests": 100,
+    "max_tests": 200,
+    "min_endpoints": 30,
+    "max_endpoints": 50,
+    "tests_per_endpoint": "3-5"
+  },
+
+  "mock_data": {
+    "users": 20,
+    "main_entity": 50,
+    "secondary_entities": 10
+  },
+
+  "session_expectations": {
+    "initializer_duration": "10-20 minutes",
+    "total_sessions": "10-15 sessions"
+  }
+}

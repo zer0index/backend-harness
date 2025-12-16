@@ -1,0 +1,23 @@
+{
+  "app_size": "large",
+  "description": "Complex application (e.g., E-commerce Platform, CRM, ERP System)",
+
+  "test_spec": {
+    "min_tests": 300,
+    "max_tests": 500,
+    "min_endpoints": 60,
+    "max_endpoints": 100,
+    "tests_per_endpoint": "4-6"
+  },
+
+  "mock_data": {
+    "users": 30,
+    "main_entity": 100,
+    "secondary_entities": 20
+  },
+
+  "session_expectations": {
+    "initializer_duration": "20-30 minutes",
+    "total_sessions": "20-30 sessions"
+  }
+}

@@ -69,6 +69,14 @@ Environment Variables:
         help=f"Claude model to use (default: {DEFAULT_MODEL})",
     )
 
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="medium",
+        choices=["small", "medium", "large"],
+        help="App size configuration (small=20-30 tests, medium=100-200 tests, large=300-500 tests). Default: medium",
+    )
+
     return parser.parse_args()
 
 
@@ -102,6 +110,7 @@ def main() -> None:
                 project_dir=project_dir,
                 model=args.model,
                 max_iterations=args.max_iterations,
+                config_name=args.config,
             )
         )
     except KeyboardInterrupt:

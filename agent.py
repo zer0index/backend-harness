@@ -98,6 +98,7 @@ async def run_autonomous_agent(
     project_dir: Path,
     model: str,
     max_iterations: Optional[int] = None,
+    config_name: str = 'medium',
 ) -> None:
     """
     Run the autonomous agent loop.
@@ -106,6 +107,7 @@ async def run_autonomous_agent(
         project_dir: Directory for the project
         model: Claude model to use
         max_iterations: Maximum number of iterations (None for unlimited)
+        config_name: Configuration size (small, medium, large)
     """
     print("\n" + "=" * 70)
     print("  AUTONOMOUS CODING AGENT DEMO")
@@ -160,10 +162,10 @@ async def run_autonomous_agent(
 
         # Choose prompt based on session type
         if is_first_run:
-            prompt = get_initializer_prompt()
+            prompt = get_initializer_prompt(config_name)
             is_first_run = False  # Only use initializer once
         else:
-            prompt = get_coding_prompt()
+            prompt = get_coding_prompt(config_name)
 
         # Run session with async context manager
         async with client:

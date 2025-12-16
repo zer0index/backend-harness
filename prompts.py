@@ -5,11 +5,68 @@ Prompt Loading Utilities
 Functions for loading prompt templates from the prompts directory.
 """
 
+import json
 import shutil
 from pathlib import Path
 
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
+CONFIGS_DIR = Path(__file__).parent / "configs"
+
+
+def load_config(config_name: str = 'medium') -> dict:
+    """Load configuration file for app size/complexity.
+
+    Args:
+        config_name: Name of config file (small, medium, large)
+
+    Returns:
+        Dictionary containing configuration values
+    """
+    config_path = CONFIGS_DIR / f'{config_name}.json'
+
+    if not config_path.exists():
+        print(f"⚠️  Warning: Config '{config_name}' not found, using 'medium'")
+        config_path = CONFIGS_DIR / 'medium.json'
+
+    with open(config_path) as f:
+        config = json.load(f)
+
+    print(f"📋 Using '{config['app_size']}' configuration: {config['description']}")
+    print(f"   Tests: {config['test_spec']['min_tests']}-{config['test_spec']['max_tests']}")
+    print(f"   Endpoints: {config['test_spec']['min_endpoints']}-{config['test_spec']['max_endpoints']}")
+    print(f"   Expected duration: {config['session_expectations']['total_sessions']}")
+
+    return config
+
+
+def apply_config_to_prompt(prompt_text: str, config: dict) -> str:
+    """Replace placeholders in prompt with config values.
+
+    Args:
+        prompt_text: Prompt template with {{PLACEHOLDER}} markers
+        config: Configuration dictionary
+
+    Returns:
+        Prompt with placeholders replaced by actual values
+    """
+    replacements = {
+        '{{MIN_TESTS}}': str(config['test_spec']['min_tests']),
+        '{{MAX_TESTS}}': str(config['test_spec']['max_tests']),
+        '{{MIN_ENDPOINTS}}': str(config['test_spec']['min_endpoints']),
+        '{{MAX_ENDPOINTS}}': str(config['test_spec']['max_endpoints']),
+        '{{TESTS_PER_ENDPOINT}}': config['test_spec']['tests_per_endpoint'],
+        '{{MOCK_USERS}}': str(config['mock_data']['users']),
+        '{{MOCK_MAIN_ENTITY}}': str(config['mock_data']['main_entity']),
+        '{{MOCK_SECONDARY}}': str(config['mock_data']['secondary_entities']),
+        '{{INIT_DURATION}}': config['session_expectations']['initializer_duration'],
+        '{{TOTAL_SESSIONS}}': config['session_expectations']['total_sessions']
+    }
+
+    for placeholder, value in replacements.items():
+        prompt_text = prompt_text.replace(placeholder, value)
+
+    return prompt_text
 
 
 def load_prompt(name: str) -> str:
@@ -18,14 +75,32 @@ def load_prompt(name: str) -> str:
     return prompt_path.read_text()
 
 
-def get_initializer_prompt() -> str:
-    """Load the initializer prompt."""
-    return load_prompt("initializer_prompt")
+def get_initializer_prompt(config_name: str = 'medium') -> str:
+    """Load and configure the initializer prompt.
+
+    Args:
+        config_name: Configuration size (small, medium, large)
+
+    Returns:
+        Configured prompt with values substituted
+    """
+    config = load_config(config_name)
+    prompt = load_prompt("initializer_prompt")
+    return apply_config_to_prompt(prompt, config)
 
 
-def get_coding_prompt() -> str:
-    """Load the coding agent prompt."""
-    return load_prompt("coding_prompt")
+def get_coding_prompt(config_name: str = 'medium') -> str:
+    """Load and configure the coding agent prompt.
+
+    Args:
+        config_name: Configuration size (small, medium, large)
+
+    Returns:
+        Configured prompt with values substituted
+    """
+    config = load_config(config_name)
+    prompt = load_prompt("coding_prompt")
+    return apply_config_to_prompt(prompt, config)
 
 
 def copy_spec_to_project(project_dir: Path) -> None:

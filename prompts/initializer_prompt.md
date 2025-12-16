@@ -12,10 +12,10 @@ before proceeding.
 
 ### CRITICAL FIRST TASK: Create feature_list.json
 
-Based on `app_spec.txt`, create a file called `feature_list.json` with 100-200 detailed
+Based on `app_spec.txt`, create a file called `feature_list.json` with {{MIN_TESTS}}-{{MAX_TESTS}} detailed
 API test cases. This file is the single source of truth for what needs to be built.
 
-**Target:** 30-50 API endpoints, with 3-5 test cases per endpoint = 100-200 total tests
+**Target:** {{MIN_ENDPOINTS}}-{{MAX_ENDPOINTS}} API endpoints, with {{TESTS_PER_ENDPOINT}} test cases per endpoint = {{MIN_TESTS}}-{{MAX_TESTS}} total tests
 
 **Format:**
 ```json
@@ -150,7 +150,7 @@ API test cases. This file is the single source of truth for what needs to be bui
 - **edge_case**: Error handling, limits, boundary conditions
 
 **Requirements for feature_list.json:**
-- 100-200 test cases total (30-50 endpoints × 3-5 tests each)
+- {{MIN_TESTS}}-{{MAX_TESTS}} test cases total ({{MIN_ENDPOINTS}}-{{MAX_ENDPOINTS}} endpoints × {{TESTS_PER_ENDPOINT}} tests each)
 - Cover all CRUD operations for each resource
 - Include authentication/authorization tests
 - Test happy paths AND error cases (400s, 404s, 422s, etc.)
@@ -503,13 +503,13 @@ output_dir.mkdir(parents=True, exist_ok=True)
 
 print("Generating mock data...")
 
-# Generate Users (15-20 users)
+# Generate Users ({{MOCK_USERS}} users)
 print("- Generating users...")
 users = []
 roles = ["admin", "manager", "user"]
-role_distribution = [1, 3, 16]  # 1 admin, 3 managers, 16 users
+role_distribution = [1, 3, 16]  # 1 admin, 3 managers, rest users
 
-for i in range(1, 21):
+for i in range(1, {{MOCK_USERS}} + 1):
     if i == 1:
         role = "admin"
     elif i <= 4:
@@ -532,13 +532,13 @@ with open(output_dir / 'users.json', 'w') as f:
     json.dump(users, f, indent=2)
 print(f"  ✓ Generated {len(users)} users")
 
-# Generate Tasks (40-50 tasks)
+# Generate Tasks ({{MOCK_MAIN_ENTITY}} tasks/main entities)
 print("- Generating tasks...")
 tasks = []
 statuses = ["pending", "in_progress", "completed", "cancelled"]
 priorities = ["low", "medium", "high", "urgent"]
 
-for i in range(1, 51):
+for i in range(1, {{MOCK_MAIN_ENTITY}} + 1):
     creator = random.choice(users)
     # 80% of tasks are assigned
     assignee = random.choice(users) if random.random() > 0.2 else None
@@ -565,13 +565,13 @@ with open(output_dir / 'tasks.json', 'w') as f:
     json.dump(tasks, f, indent=2)
 print(f"  ✓ Generated {len(tasks)} tasks")
 
-# Generate Tags (8-10 tags)
+# Generate Tags ({{MOCK_SECONDARY}} tags/secondary entities)
 print("- Generating tags...")
 tag_names = ["Backend", "Frontend", "Bug", "Feature", "Documentation", "Testing", "DevOps", "Design", "Research", "Urgent"]
 colors = ["#FF5733", "#33FF57", "#3357FF", "#F333FF", "#FF33F3", "#33FFF3", "#F3FF33", "#FF8C33", "#8C33FF", "#33FF8C"]
 
 tags = []
-for i, (name, color) in enumerate(zip(tag_names, colors), 1):
+for i, (name, color) in enumerate(zip(tag_names[:{{MOCK_SECONDARY}}], colors[:{{MOCK_SECONDARY}}]), 1):
     tags.append({
         "id": i,
         "name": name,
@@ -583,10 +583,11 @@ with open(output_dir / 'tags.json', 'w') as f:
     json.dump(tags, f, indent=2)
 print(f"  ✓ Generated {len(tags)} tags")
 
-# Generate Comments (25-30 comments)
+# Generate Comments ({{MOCK_SECONDARY}}*3 comments - roughly 3x secondary entities)
 print("- Generating comments...")
 comments = []
-for i in range(1, 31):
+num_comments = {{MOCK_SECONDARY}} * 3
+for i in range(1, num_comments + 1):
     task = random.choice(tasks)
     user = random.choice(users)
     created = fake.date_time_between(
