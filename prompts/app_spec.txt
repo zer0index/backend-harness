@@ -475,3 +475,182 @@ Implement features in this order:
    - Performance optimization
    - Documentation review
    - Error handling improvements
+
+---
+
+## User Workflows & Journeys
+
+(This section provides context for frontend development - describe key user workflows)
+
+### Workflow 1: Task Creation & Assignment (Manager)
+
+**User Role:** Manager
+**Goal:** Create a new task and assign it to a team member
+
+**Steps:**
+1. Manager logs in and navigates to dashboard
+2. Clicks "Create Task" button
+3. Fills in task form:
+   - Title (required)
+   - Description (optional)
+   - Priority (dropdown: low/medium/high/urgent)
+   - Assignee (dropdown of active users)
+   - Due date (date picker)
+   - Tags (multi-select)
+4. Clicks "Create" button
+5. System validates input
+6. Task is created and appears in task list
+7. Assigned user receives notification (if notifications implemented)
+
+**Success Criteria:** Task appears in assignee's "My Tasks" view with "pending" status
+
+**Error Cases:**
+- Missing title → Show validation error "Title is required"
+- Due date in past → Show validation error "Due date must be in the future"
+- Assignee is inactive → Show validation error "Cannot assign to inactive user"
+
+### Workflow 2: Task Completion (User)
+
+**User Role:** User
+**Goal:** View assigned task, update status, and mark as complete
+
+**Steps:**
+1. User logs in and sees dashboard with assigned tasks
+2. Clicks on a task from the list
+3. Reads task details (title, description, due date, priority)
+4. Changes status from "pending" to "in_progress" via dropdown
+5. Adds a comment about progress
+6. Later, changes status to "completed"
+7. System auto-sets `completed_at` timestamp
+
+**Success Criteria:** Task marked complete, timestamp set, manager can see completion
+
+**Error Cases:**
+- Cannot set status to completed without doing the work → Business rule, not enforced by system
+
+### Workflow 3: Team Dashboard Monitoring (Manager)
+
+**User Role:** Manager
+**Goal:** Monitor team's task progress and identify bottlenecks
+
+**Steps:**
+1. Manager navigates to Team Dashboard
+2. Views statistics:
+   - Total tasks by status (pending, in_progress, completed)
+   - Task distribution by team member
+   - Overdue tasks (highlighted in red)
+3. Applies filters:
+   - By date range (last 7 days, last 30 days, custom)
+   - By status
+   - By user
+4. Identifies user with too many tasks
+5. Reassigns some tasks to balance workload
+
+**Success Criteria:** Manager has visibility into team workload and can take action
+
+### Workflow 4: Task Searching & Filtering (User/Manager)
+
+**User Role:** User or Manager
+**Goal:** Find specific tasks using search and filters
+
+**Steps:**
+1. Navigate to Tasks page
+2. Use search bar to search by title/description keywords
+3. Apply filters:
+   - Status (multi-select)
+   - Priority (multi-select)
+   - Assignee (dropdown)
+   - Due date range (date pickers)
+   - Tags (multi-select)
+   - Overdue only (checkbox)
+4. Apply sorting (by due date, priority, created date)
+5. Results update in real-time
+6. Click task to view details
+
+**Success Criteria:** User finds the task they're looking for efficiently
+
+### Workflow 5: Collaborative Task Discussion (User)
+
+**User Role:** User
+**Goal:** Discuss task details via comments
+
+**Steps:**
+1. User opens task detail view
+2. Scrolls to comments section
+3. Reads existing comments from team members
+4. Adds a new comment with questions or updates
+5. Other team members receive notifications (if implemented)
+6. Conversation continues in comment thread
+7. User can edit/delete their own comments
+
+**Success Criteria:** Team members can communicate about task progress
+
+**Error Cases:**
+- Cannot add comment to cancelled task → Show error "Cannot comment on cancelled tasks"
+- Cannot edit another user's comment → Action not available
+
+---
+
+## Suggested Screen Structure
+
+(This section guides frontend developers on what screens/views to build)
+
+### Public Screens
+- **Login Page**: Email and password authentication
+- **Registration Page** (optional): Create new user account
+
+### User Screens (All authenticated users)
+- **Dashboard / Home**: Overview of my assigned tasks, stats, recent activity
+- **My Tasks**: List of all my assigned tasks with filters and search
+- **Task Detail**: Full task information with comments and activity history
+- **Profile Settings**: Edit my profile, change password, preferences
+
+### Manager Screens (Managers and above)
+- **Team Dashboard**: Overview of team tasks, workload distribution, metrics
+- **Team Tasks**: List of all team tasks with advanced filters
+- **Task Board (Kanban)**: Visual drag-and-drop task management by status
+- **Create/Edit Task**: Form to create new tasks or edit existing ones
+- **Team Members**: List of team members with task counts and status
+
+### Admin Screens (Admins only)
+- **User Management**: Full CRUD for user accounts
+- **System Settings**: Application configuration
+- **Reports** (future): Analytics and reports
+
+---
+
+## Feature Priority for Frontend
+
+(Guide frontend developers on what to build first)
+
+### Must Have (MVP)
+- [ ] User login/logout
+- [ ] View my assigned tasks (list view)
+- [ ] View task details
+- [ ] Update task status (dropdown)
+- [ ] Create new task (basic form)
+- [ ] Filter tasks by status and assignee
+- [ ] Search tasks by title
+- [ ] View my profile
+
+### Should Have
+- [ ] Task priority indicators (visual cues)
+- [ ] Due date tracking with overdue alerts
+- [ ] Comments on tasks
+- [ ] Tags for tasks
+- [ ] Advanced filters (multiple criteria)
+- [ ] Sort options (due date, priority, created)
+- [ ] Task board (Kanban view) for managers
+- [ ] Team dashboard for managers
+- [ ] Empty states and error handling
+
+### Nice to Have
+- [ ] File attachments
+- [ ] Email notifications
+- [ ] Activity timeline
+- [ ] Bulk actions (bulk status update)
+- [ ] Export functionality
+- [ ] Advanced analytics
+- [ ] Dark mode
+- [ ] Keyboard shortcuts
+- [ ] Mobile responsive design

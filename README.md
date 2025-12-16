@@ -13,8 +13,66 @@ Complete FastAPI applications with:
 - Database migrations (Alembic)
 - Auto-generated OpenAPI documentation
 - Mock authentication (swappable for JWT)
+- **Frontend handoff documentation** (APP_OVERVIEW.md, FRONTEND_HANDOFF.md)
+- **Realistic mock data files** (JSON) perfectly aligned with backend schemas
+- **OpenAPI specification export** (openapi.json)
 
 **Perfect for:** Generating backends to hand off to Figma Make or similar frontend tools.
+
+## Frontend Handoff Package
+
+The generated backend includes comprehensive handoff documentation perfect for Figma Make or other frontend tools:
+
+### 📋 APP_OVERVIEW.md
+Business context, user workflows, and suggested screen structure. Helps UI designers understand what they're building and why.
+
+**Contains:**
+- Application purpose and goals
+- User roles and permissions
+- Step-by-step user workflows (5-10 key journeys)
+- Suggested screens organized by role
+- Navigation structure
+- Feature priorities (MVP vs nice-to-have)
+- Design considerations
+
+### 🔌 FRONTEND_HANDOFF.md
+Technical integration guide with quick start instructions, data models (TypeScript interfaces), endpoint summaries, and code examples.
+
+**Contains:**
+- Quick start guide (how to run the backend)
+- Authentication setup (current mock auth + future JWT)
+- Data models as TypeScript interfaces
+- API endpoint summaries by resource
+- Common patterns (pagination, errors, timestamps)
+- Integration code examples
+- Testing instructions (Swagger UI, cURL)
+
+### 🎨 Mock Data Files
+Realistic JSON data files (`docs/mock-data/`) that perfectly mirror the backend schemas:
+- Ready to import in frontend code
+- Includes relationships between entities (foreign keys reference existing records)
+- Contains realistic data patterns using Faker library (not "test1", "test2")
+- Easy to swap for real API calls later (simple toggle)
+
+**Files generated:**
+- `users.json` - 15-20 sample users with various roles
+- `tasks.json` - 40-50 sample tasks with assignments, statuses, priorities
+- `tags.json` - 8-10 sample tags with colors
+- `comments.json` - 25-30 sample comments
+- `README.md` - Complete usage guide with code examples
+
+### 📖 OpenAPI Specification
+Machine-readable `openapi.json` file with complete API documentation, exportable to Postman or other API tools.
+
+---
+
+**Why This Matters:**
+- Frontend development can start immediately using mock data (no backend dependency)
+- Mock data perfectly matches API response schemas
+- Clear documentation of user workflows guides UI design decisions
+- Easy integration phase with comprehensive technical docs
+
+**Location:** All handoff files are in the generated project's `docs/` directory and root.
 
 ## Prerequisites
 

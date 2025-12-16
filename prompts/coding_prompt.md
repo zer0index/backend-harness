@@ -342,6 +342,192 @@ to:
 
 **ONLY CHANGE "passes" FIELD AFTER VERIFICATION WITH PYTEST.**
 
+### STEP 8.5: UPDATE HANDOFF DOCUMENTATION (If Schemas Changed)
+
+If you added new models, modified schemas, or changed endpoints in this session, update the handoff documentation.
+
+**When to update handoff docs:**
+- ✅ Added new entities/models
+- ✅ Modified existing schemas (added/changed/removed fields)
+- ✅ Added new endpoints
+- ✅ Changed endpoint behavior significantly
+- ❌ Fixed bugs without schema changes
+- ❌ Only modified internal business logic
+
+#### Check What Changed
+
+```bash
+# See if you modified models or schemas
+git diff HEAD -- app/models/ app/schemas/ app/routers/
+```
+
+If there are changes, proceed with updates:
+
+#### Update FRONTEND_HANDOFF.md
+
+1. **Open `docs/FRONTEND_HANDOFF.md`**
+
+2. **If you added a new entity**, add to the **Data Models** section:
+
+Example:
+```markdown
+### Tag
+
+\```typescript
+interface Tag {
+  id: number;
+  name: string;
+  color: string | null;
+  created_at: string;
+}
+\```
+
+**Relationships:**
+- Has many: Tasks (many-to-many)
+
+**Business Rules:**
+- Tag names must be unique (case-insensitive)
+- Deleting a tag removes it from all tasks
+
+**Validation:**
+- Name: 1-50 characters, alphanumeric + spaces/hyphens
+- Color: valid hex color (#RRGGBB) or null
+
+**Mock Data:** `docs/mock-data/tags.json` (10 sample tags)
+```
+
+3. **If you added new endpoints**, add to the **API Endpoints** section:
+
+Example:
+```markdown
+### Tags
+
+#### List Tags
+`GET /api/v1/tags`
+
+**Response (200):** Array of tag objects
+
+#### Create Tag
+`POST /api/v1/tags`
+
+**Request Body:**
+\```json
+{
+  "name": "Backend",
+  "color": "#FF5733"
+}
+\```
+
+**Response (201):** Tag object
+
+**Errors:**
+- `409` - Tag name already exists
+- `422` - Validation error
+```
+
+4. **Save the file** - Do NOT rewrite the entire file, just add/update the relevant sections
+
+#### Regenerate Mock Data (If New Models Added)
+
+If you added new models:
+
+1. **Update `scripts/generate_mock_data.py`** to include the new entity:
+
+Example for adding Tags:
+```python
+# Add after other entities
+
+# Generate Tags (8-10 tags)
+print("- Generating tags...")
+tag_names = ["Backend", "Frontend", "Bug", "Feature", "Documentation"]
+colors = ["#FF5733", "#33FF57", "#3357FF", "#F333FF", "#FF33F3"]
+
+tags = []
+for i, (name, color) in enumerate(zip(tag_names, colors), 1):
+    tags.append({
+        "id": i,
+        "name": name,
+        "color": color,
+        "created_at": fake.date_time_between(start_date='-1y').isoformat() + 'Z'
+    })
+
+with open(output_dir / 'tags.json', 'w') as f:
+    json.dump(tags, f, indent=2)
+print(f"  ✓ Generated {len(tags)} tags")
+```
+
+2. **Regenerate all mock data**:
+```bash
+python scripts/generate_mock_data.py
+```
+
+3. **Verify new file was created**:
+```bash
+ls -la docs/mock-data/
+# Should see the new file (e.g., tags.json)
+```
+
+4. **Update `docs/mock-data/README.md`** if needed:
+   - Add section for the new entity
+   - Include example record
+   - Explain relationships
+
+#### Re-export OpenAPI Spec
+
+After implementing new endpoints, export the updated OpenAPI spec:
+
+```bash
+# Check if server is running
+ps aux | grep uvicorn
+
+# If not running, start it
+uvicorn app.main:app --port 8000 &
+UVICORN_PID=$!
+sleep 5
+
+# Export updated spec
+curl http://localhost:8000/openapi.json > openapi.json
+
+# Verify file size (should be larger if you added endpoints)
+ls -lh openapi.json
+
+# Stop server
+pkill -P $UVICORN_PID || pkill uvicorn
+```
+
+#### Update APP_OVERVIEW.md (Rarely Needed)
+
+**Only update APP_OVERVIEW.md if:**
+- ✅ You added entirely new workflows or user journeys
+- ✅ You implemented a feature that changes how users interact with the system
+- ✅ You added new screens or significantly changed navigation
+
+For routine endpoint implementations, APP_OVERVIEW.md usually doesn't need updates.
+
+#### Commit Documentation Updates
+
+If you updated any handoff docs:
+
+```bash
+git add docs/ openapi.json scripts/generate_mock_data.py
+git status
+git commit -m "Update handoff docs: added [describe what changed]
+
+- Updated FRONTEND_HANDOFF.md with [new entity/endpoints]
+- Regenerated mock data including [new entity]
+- Exported updated openapi.json
+- Updated mock data README with [new entity] usage"
+```
+
+**When to Skip This Step:**
+- If you only fixed bugs without changing schemas
+- If you only modified internal business logic
+- If no new endpoints or models were added
+
+The handoff documentation should stay in sync with your API, but doesn't need to be updated every single commit - only when the API surface changes.
+
+---
+
 ### STEP 9: COMMIT YOUR PROGRESS
 
 Make a descriptive git commit:

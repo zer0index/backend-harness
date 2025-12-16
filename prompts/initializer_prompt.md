@@ -371,7 +371,341 @@ Create a git repository and make your first commit with:
 
 Commit message: "Initial setup: FastAPI project structure, feature_list.json, and Docker PostgreSQL"
 
-### SIXTH TASK: Implement Mock Authentication
+### SIXTH TASK: Create Frontend Handoff Documentation
+
+Create comprehensive documentation for frontend developers (Figma Make) to understand and integrate with the API.
+
+This task creates documentation that will be handed off to Figma Make or other frontend tools to build the UI.
+
+#### 6.1: Create docs/ directory
+
+```bash
+mkdir -p docs/mock-data
+mkdir -p scripts
+```
+
+#### 6.2: Create APP_OVERVIEW.md
+
+Based on the `app_spec.txt` file you read earlier, create `docs/APP_OVERVIEW.md`.
+
+This file provides **business context and user workflows** for frontend developers.
+
+**Structure to follow:**
+1. **Purpose Section** - Extract from app_spec.txt overview (what problem does this solve?)
+2. **User Roles & Permissions** - Extract from app_spec.txt business rules
+3. **Core User Workflows** - Extract from "User Workflows & Journeys" section
+   - Include 5-10 step-by-step workflows showing how users accomplish goals
+   - Include success criteria and error cases for each workflow
+4. **Suggested Screens/Views** - Suggest screens based on workflows and resources
+   - Organize by user role (Public, User, Manager, Admin)
+   - For each screen: describe purpose, key elements, interactions, navigation
+5. **Data Relationships & Display Patterns** - Describe how data should be displayed
+   - List views, detail views, reusable components
+   - Common UI patterns (badges, avatars, etc.)
+6. **Navigation Structure** - Suggest app navigation hierarchy
+7. **Key Features by Priority** - Extract from app_spec.txt priority section
+8. **Design Considerations** - Information hierarchy, responsive behavior
+9. **Integration with Mock Data** - Emphasize using mock data for UI development
+
+**Writing tips:**
+- Write for **UI designers and frontend developers**, not backend developers
+- Focus on **user experience and workflows**, not implementation details
+- Be **specific** about suggested screens and interactions
+- Reference mock data files for each entity
+- Use the templates in `prompts/templates/APP_OVERVIEW_TEMPLATE.md` as a guide
+
+**Example excerpt:**
+```markdown
+# Task Management API - Application Overview
+
+## Purpose
+A task management system that enables teams to create, assign, and track tasks with priorities, due dates, and collaborative comments. Designed for small to medium teams (5-50 users) who need basic project management without complex features.
+
+## User Roles & Permissions
+
+### Admin
+**Capabilities:**
+- Full system access
+- Create/edit/delete any user
+- Manage system settings
+- View all tasks across organization
+
+[etc...]
+```
+
+#### 6.3: Create FRONTEND_HANDOFF.md
+
+Create `docs/FRONTEND_HANDOFF.md` with technical integration details.
+
+This file provides **technical API integration guidance** for frontend developers.
+
+**Structure:**
+1. **Quick Start** - How to run the backend locally (commands)
+2. **Authentication** - Current mock auth setup, future JWT plans
+3. **Data Models** - TypeScript/JavaScript interfaces for each entity
+   - Convert Pydantic schemas to TypeScript interfaces
+   - Include all fields with types
+   - Document relationships (has many, belongs to)
+   - Reference mock data file for each entity
+4. **API Endpoints** - Summary of key endpoints by resource
+   - Method + Path
+   - Brief description
+   - Key parameters
+   - Response format example
+   - Common errors
+   - Point to openapi.json for full details
+5. **Common Patterns** - Pagination format, error response format, timestamps
+6. **Example Integration** - Code examples (JavaScript/TypeScript)
+   - How to fetch data with mock data
+   - How to fetch data from real API
+   - How to switch between them
+7. **Testing the API** - How to use Swagger UI, cURL examples
+8. **Resources** - Links to APP_OVERVIEW.md, mock-data/, openapi.json
+
+**IMPORTANT:** Keep this file concise! Don't duplicate the entire OpenAPI spec. Focus on:
+- Getting started quickly
+- Common patterns and conventions
+- Code examples
+- Pointers to full documentation
+
+Use the template in `prompts/templates/FRONTEND_HANDOFF_TEMPLATE.md` as a guide.
+
+#### 6.4: Generate Mock Data Files
+
+Create realistic mock data that perfectly mirrors your data models.
+
+**Step 1:** Install faker library (if not in dependencies):
+```bash
+pip install faker
+```
+
+**Step 2:** Create `scripts/generate_mock_data.py`
+
+This script should generate realistic mock data for all entities:
+
+```python
+#!/usr/bin/env python3
+"""Generate realistic mock data for frontend development."""
+
+from faker import Faker
+import json
+from datetime import datetime, timedelta
+import random
+from pathlib import Path
+
+fake = Faker()
+Faker.seed(42)  # For reproducible data
+random.seed(42)
+
+# Output directory
+output_dir = Path('docs/mock-data')
+output_dir.mkdir(parents=True, exist_ok=True)
+
+print("Generating mock data...")
+
+# Generate Users (15-20 users)
+print("- Generating users...")
+users = []
+roles = ["admin", "manager", "user"]
+role_distribution = [1, 3, 16]  # 1 admin, 3 managers, 16 users
+
+for i in range(1, 21):
+    if i == 1:
+        role = "admin"
+    elif i <= 4:
+        role = "manager"
+    else:
+        role = "user"
+
+    users.append({
+        "id": i,
+        "email": fake.email(),
+        "name": fake.name(),
+        "role": role,
+        "is_active": random.choice([True] * 9 + [False]),  # 90% active
+        "created_at": fake.date_time_between(start_date='-1y').isoformat() + 'Z',
+        "updated_at": fake.date_time_between(start_date='-30d').isoformat() + 'Z'
+    })
+
+# Save users
+with open(output_dir / 'users.json', 'w') as f:
+    json.dump(users, f, indent=2)
+print(f"  ✓ Generated {len(users)} users")
+
+# Generate Tasks (40-50 tasks)
+print("- Generating tasks...")
+tasks = []
+statuses = ["pending", "in_progress", "completed", "cancelled"]
+priorities = ["low", "medium", "high", "urgent"]
+
+for i in range(1, 51):
+    creator = random.choice(users)
+    # 80% of tasks are assigned
+    assignee = random.choice(users) if random.random() > 0.2 else None
+    status = random.choice(statuses)
+    created = fake.date_time_between(start_date='-60d')
+    due = created + timedelta(days=random.randint(7, 60))
+
+    task = {
+        "id": i,
+        "title": fake.sentence(nb_words=6).rstrip('.'),
+        "description": fake.paragraph(nb_sentences=3) if random.random() > 0.2 else None,
+        "status": status,
+        "priority": random.choice(priorities),
+        "assignee_id": assignee["id"] if assignee else None,
+        "creator_id": creator["id"],
+        "due_date": due.isoformat() + 'Z',
+        "completed_at": (created + timedelta(days=random.randint(1, 30))).isoformat() + 'Z' if status == "completed" else None,
+        "created_at": created.isoformat() + 'Z',
+        "updated_at": fake.date_time_between(start_date=created).isoformat() + 'Z'
+    }
+    tasks.append(task)
+
+with open(output_dir / 'tasks.json', 'w') as f:
+    json.dump(tasks, f, indent=2)
+print(f"  ✓ Generated {len(tasks)} tasks")
+
+# Generate Tags (8-10 tags)
+print("- Generating tags...")
+tag_names = ["Backend", "Frontend", "Bug", "Feature", "Documentation", "Testing", "DevOps", "Design", "Research", "Urgent"]
+colors = ["#FF5733", "#33FF57", "#3357FF", "#F333FF", "#FF33F3", "#33FFF3", "#F3FF33", "#FF8C33", "#8C33FF", "#33FF8C"]
+
+tags = []
+for i, (name, color) in enumerate(zip(tag_names, colors), 1):
+    tags.append({
+        "id": i,
+        "name": name,
+        "color": color,
+        "created_at": fake.date_time_between(start_date='-1y').isoformat() + 'Z'
+    })
+
+with open(output_dir / 'tags.json', 'w') as f:
+    json.dump(tags, f, indent=2)
+print(f"  ✓ Generated {len(tags)} tags")
+
+# Generate Comments (25-30 comments)
+print("- Generating comments...")
+comments = []
+for i in range(1, 31):
+    task = random.choice(tasks)
+    user = random.choice(users)
+    created = fake.date_time_between(
+        start_date=datetime.fromisoformat(task["created_at"].rstrip('Z')),
+        end_date='now'
+    )
+
+    comments.append({
+        "id": i,
+        "task_id": task["id"],
+        "user_id": user["id"],
+        "content": fake.paragraph(nb_sentences=random.randint(1, 3)),
+        "created_at": created.isoformat() + 'Z',
+        "updated_at": created.isoformat() + 'Z'
+    })
+
+with open(output_dir / 'comments.json', 'w') as f:
+    json.dump(comments, f, indent=2)
+print(f"  ✓ Generated {len(comments)} comments")
+
+print("\nMock data generation complete!")
+print(f"Files created in {output_dir}/")
+```
+
+**Step 3:** Run the script:
+```bash
+chmod +x scripts/generate_mock_data.py
+python scripts/generate_mock_data.py
+```
+
+**Step 4:** Verify the files were created:
+```bash
+ls -la docs/mock-data/
+```
+
+You should see: `users.json`, `tasks.json`, `tags.json`, `comments.json`
+
+#### 6.5: Create Mock Data README
+
+Create `docs/mock-data/README.md` using the template in `prompts/templates/MOCK_DATA_README_TEMPLATE.md`.
+
+This file explains:
+- What each mock data file contains
+- Example records from each file
+- How to use the mock data in frontend code (with code examples)
+- How to simulate relationships and filtering
+- How to switch between mock data and real API
+
+**Key sections:**
+1. Overview - Why use mock data
+2. Available Files - List each JSON file with examples
+3. How to Use - Code examples in React/Vue/Svelte
+4. Common Operations - Filtering, sorting, pagination, relationships
+5. Switching to Real API - How to toggle between mock and real data
+6. Data Integrity - Explanation of how data aligns with schemas
+7. Troubleshooting - Common issues and solutions
+
+#### 6.6: Export OpenAPI Specification
+
+After you've set up the FastAPI application structure (main.py with basic routes):
+
+**Option 1:** If you have basic endpoints set up:
+```bash
+# Start FastAPI server temporarily
+uvicorn app.main:app --port 8000 &
+UVICORN_PID=$!
+sleep 5
+
+# Export OpenAPI spec
+curl http://localhost:8000/openapi.json > openapi.json
+
+# Stop server
+pkill -P $UVICORN_PID || pkill uvicorn
+
+# Verify
+ls -lh openapi.json
+```
+
+**Option 2:** If endpoints aren't ready yet:
+- Skip this step for now
+- The coding agent will export openapi.json after implementing endpoints
+- Add a TODO comment in claude-progress.txt to export it later
+
+#### 6.7: Add to Git
+
+Commit the handoff documentation:
+
+```bash
+git add docs/ scripts/generate_mock_data.py
+git status
+git commit -m "Add frontend handoff documentation and mock data
+
+- Added APP_OVERVIEW.md with user workflows and suggested screens
+- Added FRONTEND_HANDOFF.md with technical integration guide
+- Generated realistic mock data for all entities:
+  * users.json (20 users with various roles)
+  * tasks.json (50 tasks with assignments and statuses)
+  * tags.json (10 tags with colors)
+  * comments.json (30 comments on tasks)
+- Created mock data generation script (scripts/generate_mock_data.py)
+- Added mock data usage guide (docs/mock-data/README.md)
+- Ready for Figma Make handoff"
+```
+
+**Handoff Package Complete!**
+
+At this point, you have created a complete handoff package:
+- ✅ `docs/APP_OVERVIEW.md` - Business context and workflows for UI designers
+- ✅ `docs/FRONTEND_HANDOFF.md` - Technical integration guide for developers
+- ✅ `docs/mock-data/*.json` - Realistic sample data files
+- ✅ `docs/mock-data/README.md` - Mock data usage guide
+- ✅ `scripts/generate_mock_data.py` - Script to regenerate mock data
+- ✅ `openapi.json` - Complete API specification (if available)
+
+These files can be handed off to Figma Make or any frontend tool to build the UI without needing the backend running.
+
+---
+
+### SEVENTH TASK: Implement Mock Authentication
 
 Since real authentication will be implemented later, create a mock auth system:
 
