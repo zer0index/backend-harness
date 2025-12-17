@@ -233,6 +233,20 @@ Configuration:
         help="Skip git repository initialization and commits",
     )
 
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show detailed output including all tool calls and results",
+    )
+
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Minimal output - only phases, errors, and summaries",
+    )
+
     return parser.parse_args()
 
 
@@ -242,6 +256,14 @@ def main() -> None:
     load_dotenv()
 
     args = parse_args()
+    
+    # Set verbosity level globally
+    if args.verbose:
+        agent_console.set_verbosity("verbose")
+    elif args.quiet:
+        agent_console.set_verbosity("quiet")
+    else:
+        agent_console.set_verbosity("normal")
 
     # Check for API key
     if not os.environ.get("ANTHROPIC_API_KEY"):

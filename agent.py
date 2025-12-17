@@ -52,7 +52,8 @@ async def run_agent_session(
         - "continue" if agent should continue working
         - "error" if an error occurred
     """
-    console.print("[dim]Sending prompt to Claude Agent SDK...[/]\n")
+    if agent_console.verbosity != "quiet":
+        console.print("[dim]Sending prompt to Claude Agent SDK...[/]\n")
 
     try:
         # Send the query
@@ -60,6 +61,9 @@ async def run_agent_session(
 
         # Collect response text and show tool use
         response_text = ""
+        current_tool_name = None
+        last_was_text = False
+        
         async for msg in client.receive_response():
             msg_type = type(msg).__name__
 
@@ -70,15 +74,47 @@ async def run_agent_session(
 
                     if block_type == "TextBlock" and hasattr(block, "text"):
                         response_text += block.text
-                        console.print(block.text, end="")
-                    elif block_type == "ToolUseBlock" and hasattr(block, "name"):
-                        console.print(f"\n[bold cyan]🔧 Tool:[/] [yellow]{block.name}[/]")
-                        if hasattr(block, "input"):
-                            input_str = str(block.input)
-                            if len(input_str) > 200:
-                                console.print(f"   [dim]Input: {input_str[:200]}...[/]")
+                        
+                        # Agent is thinking - capture and display appropriately
+                        text = block.text.strip()
+                        if text and agent_console.verbosity != "quiet":
+                            # End tool batch when agent starts thinking
+                            if agent_console.current_batch and agent_console.current_batch.tools:
+                                agent_console.end_tool_batch()
+                            
+                            # Show thinking in normal/verbose mode
+                            if len(text) > 100:
+                                # Long thoughts - show first sentence only in normal mode
+                                if agent_console.verbosity == "normal":
+                                    first_sentence = text.split('.')[0] + '...'
+                                    agent_console.add_agent_thought(first_sentence[:150])
+                                else:
+                                    console.print(f"[magenta]{text}[/]")
                             else:
-                                console.print(f"   [dim]Input: {input_str}[/]")
+                                # Short thoughts - show in both modes
+                                agent_console.add_agent_thought(text)
+                                
+                        last_was_text = True
+                        
+                    elif block_type == "ToolUseBlock" and hasattr(block, "name"):
+                        # Start a tool batch if this is the first tool after text
+                        if last_was_text or not agent_console.current_batch:
+                            agent_console.start_tool_batch()
+                            last_was_text = False
+                            
+                        current_tool_name = block.name
+                        
+                        # In verbose mode, show tool details
+                        if agent_console.verbosity == "verbose":
+                            console.print(f"\n[bold cyan]🔧 Tool:[/] [yellow]{block.name}[/]")
+                            if hasattr(block, "input"):
+                                input_str = str(block.input)
+                                if len(input_str) > 200:
+                                    console.print(f"   [dim]Input: {input_str[:200]}...[/]")
+                                else:
+                                    console.print(f"   [dim]Input: {input_str}[/]")
+                        
+                        agent_console.update_tool_call(block.name, "running")
 
             # Handle UserMessage (tool results)
             elif msg_type == "UserMessage" and hasattr(msg, "content"):
@@ -91,28 +127,50 @@ async def run_agent_session(
 
                         # Check if command was blocked by security hook
                         if "blocked" in str(result_content).lower():
-                            console.print(f"   [bold red]🚫 BLOCKED[/] [dim]{result_content}[/]")
+                            agent_console.update_tool_call(
+                                current_tool_name or "unknown",
+                                "error",
+                                f"BLOCKED: {result_content}"
+                            )
+                            if agent_console.verbosity == "verbose":
+                                console.print(f"   [bold red]🚫 BLOCKED[/] [dim]{result_content}[/]")
                         elif is_error:
-                            # Show errors (truncated)
+                            # Show errors
                             error_str = str(result_content)[:500]
-                            console.print(f"   [red]✗ Error:[/] [dim]{error_str}[/]")
+                            agent_console.update_tool_call(
+                                current_tool_name or "unknown",
+                                "error",
+                                error_str
+                            )
+                            if agent_console.verbosity == "verbose":
+                                console.print(f"   [red]✗ Error:[/] [dim]{error_str}[/]")
                         else:
-                            # Tool succeeded - show output if there is any
+                            # Tool succeeded
                             output = str(result_content).strip()
-                            if output and len(output) > 0:
-                                # Show first 300 chars of output for debugging
-                                if len(output) > 300:
-                                    console.print(f"   [green]✓ Done:[/] [dim]{output[:300]}...[/]")
+                            agent_console.update_tool_call(
+                                current_tool_name or "unknown",
+                                "success",
+                                output if len(output) < 100 else output[:100] + "..."
+                            )
+                            
+                            if agent_console.verbosity == "verbose":
+                                if output and len(output) > 0:
+                                    if len(output) > 300:
+                                        console.print(f"   [green]✓ Done:[/] [dim]{output[:300]}...[/]")
+                                    else:
+                                        console.print(f"   [green]✓ Done:[/] [dim]{output}[/]")
                                 else:
-                                    console.print(f"   [green]✓ Done:[/] [dim]{output}[/]")
-                            else:
-                                console.print("   [green]✓ Done[/]")
+                                    console.print("   [green]✓ Done[/]")
 
+        # End any remaining tool batch
+        if agent_console.current_batch:
+            agent_console.end_tool_batch()
+            
         console.print()
         return "continue", response_text
 
     except Exception as e:
-        print(f"Error during agent session: {e}")
+        console.print(f"[red]Error during agent session: {e}[/]")
         return "error", str(e)
 
 
@@ -206,9 +264,10 @@ async def run_autonomous_agent(
         else:
             prompt = get_coding_prompt(config_name)
 
-        # Run session with async context manager
+        # Run session with async context manager and live dashboard
         async with client:
-            status, response = await run_agent_session(client, prompt, project_dir)
+            with agent_console.live_session(iteration, max_iterations, project_dir):
+                status, response = await run_agent_session(client, prompt, project_dir)
 
         # Handle status
         if status == "continue":

@@ -33,6 +33,54 @@ from rich.style import Style
 console = Console()
 
 
+class ToolBatch:
+    """Manages a batch of tool calls for grouped display."""
+    
+    def __init__(self):
+        self.tools: List[Dict[str, Any]] = []
+        self.start_time = time.time()
+        self.completed = 0
+        self.total = 0
+        
+    def add_tool(self, name: str, status: str = "pending", output: Optional[str] = None):
+        """Add a tool to the batch."""
+        self.tools.append({
+            "name": name,
+            "status": status,
+            "output": output,
+            "timestamp": time.time()
+        })
+        self.total += 1
+        
+    def mark_complete(self, success: bool = True, output: Optional[str] = None):
+        """Mark the last tool as complete."""
+        if self.tools:
+            self.tools[-1]["status"] = "success" if success else "error"
+            self.tools[-1]["output"] = output
+            self.completed += 1
+            
+    def get_duration(self) -> float:
+        """Get batch duration in seconds."""
+        return time.time() - self.start_time
+        
+    def get_summary(self) -> str:
+        """Get a summary of tool names."""
+        tool_names = [t["name"] for t in self.tools]
+        # Group consecutive duplicates
+        grouped = []
+        for name in tool_names:
+            if grouped and grouped[-1].startswith(name):
+                # Increment count
+                if "(" in grouped[-1]:
+                    count = int(grouped[-1].split("(")[1].split("x")[0]) + 1
+                    grouped[-1] = f"{name} ({count}x)"
+                else:
+                    grouped[-1] = f"{name} (2x)"
+            else:
+                grouped.append(name)
+        return ", ".join(grouped[:5]) + (f" ... +{len(grouped)-5} more" if len(grouped) > 5 else "")
+
+
 class AgentConsole:
     """Enhanced console output manager for the autonomous agent."""
 
@@ -45,6 +93,92 @@ class AgentConsole:
         self.tools_called = 0
         self.tool_stats: Dict[str, Dict[str, int]] = {}
         self.current_phase = "Initializing"
+        self.verbosity = "normal"  # quiet, normal, verbose
+        self.current_batch: Optional[ToolBatch] = None
+        self.agent_thinking: List[str] = []
+        self.live_dashboard_active = False
+        self.current_live_dashboard: Optional[Live] = None
+        self.session_start_time = time.time()
+        self.session_errors: List[str] = []
+        self.session_thinking: List[str] = []
+        self.session_iteration = 0
+        self.session_max_iterations: Optional[int] = None
+        self.project_dir: Optional[Any] = None  # Track for test progress
+        
+    def set_verbosity(self, level: str):
+        """Set verbosity level: quiet, normal, or verbose."""
+        self.verbosity = level
+        
+    def start_tool_batch(self):
+        """Start a new batch of tool calls."""
+        if self.current_batch:
+            self.end_tool_batch()
+        self.current_batch = ToolBatch()
+        
+    def end_tool_batch(self):
+        """End the current batch and display summary."""
+        if not self.current_batch or not self.current_batch.tools:
+            return
+            
+        batch = self.current_batch
+        duration = batch.get_duration()
+        
+        # If live dashboard is active, don't print anything - it's in the dashboard
+        if self.live_dashboard_active:
+            self.current_batch = None
+            return
+        
+        # In verbose mode, tools are already shown individually
+        if self.verbosity == "verbose":
+            self.current_batch = None
+            return
+            
+        # In normal mode without dashboard, show a nice summary
+        if self.verbosity == "normal":
+            success_count = sum(1 for t in batch.tools if t["status"] == "success")
+            error_count = sum(1 for t in batch.tools if t["status"] == "error")
+            
+            # Progress bar
+            filled = int(40 * success_count / batch.total) if batch.total > 0 else 0
+            bar = "━" * filled + ("━" if filled == 40 else "╸" + "─" * (39 - filled))
+            
+            summary = Text()
+            summary.append("\n🔧 Running tools: ", style="cyan")
+            summary.append(bar, style="green" if error_count == 0 else "yellow")
+            summary.append(f" {batch.total}/{batch.total} completed\n", style="bold")
+            summary.append(f"   {batch.get_summary()}", style="dim")
+            
+            console.print(summary)
+            
+            # Show errors if any
+            if error_count > 0:
+                console.print()
+                for tool in batch.tools:
+                    if tool["status"] == "error" and tool.get("output"):
+                        error_msg = tool["output"]
+                        if len(error_msg) > 100:
+                            error_msg = error_msg[:100] + "..."
+                        console.print(f"   [red]✗ {tool['name']}: {error_msg}[/]")
+            
+            console.print()
+        
+        self.current_batch = None
+        
+    def add_agent_thought(self, text: str):
+        """Add agent thinking text."""
+        self.agent_thinking.append(text)
+        self.session_thinking.append(text)
+        
+        # In verbose mode or when no dashboard, show thinking
+        if self.verbosity == "verbose" and not self.live_dashboard_active:
+            # End any active tool batch before showing thinking
+            if self.current_batch and self.current_batch.tools:
+                self.end_tool_batch()
+            
+            console.print()
+            console.print(f"[italic dim]💭 {text}[/]")
+            console.print()
+        # Otherwise it's shown in the live dashboard
         
     def print_banner(self, model: str, project_dir: str, config: str):
         """Print animated startup banner."""
@@ -76,6 +210,7 @@ class AgentConsole:
         """Context manager for phases with animated header."""
         self.current_phase = name
         
+        # Always show phases (even in quiet mode)
         # Print phase header
         header = Text()
         header.append("╭─ ", style="bright_cyan")
@@ -114,6 +249,10 @@ class AgentConsole:
 
     def print_phase_step(self, message: str, status: str = "success"):
         """Print a step within a phase."""
+        # In quiet mode, only show errors and warnings
+        if self.verbosity == "quiet" and status not in ["error", "warning"]:
+            return
+            
         icons = {
             "success": "✓",
             "info": "ℹ",
@@ -148,53 +287,184 @@ class AgentConsole:
         console.print()
         console.print(header)
 
-    def create_live_dashboard(self, iteration: int, max_iterations: Optional[int] = None) -> Live:
-        """Create a live updating dashboard for the current iteration."""
-        layout = Layout()
-        
-        def make_dashboard() -> Panel:
-            # Status table
-            status_table = Table(show_header=False, box=None, padding=(0, 1))
-            status_table.add_column(style="dim")
-            status_table.add_column(style="bold")
+    @contextmanager
+    def live_session(self, iteration: int, max_iterations: Optional[int] = None, project_dir = None):
+        """Context manager for a live updating session dashboard."""
+        if self.verbosity == "quiet":
+            # No live dashboard in quiet mode
+            yield None
+            return
             
-            iter_text = f"{iteration}" if max_iterations is None else f"{iteration}/{max_iterations}"
-            elapsed = (datetime.now() - self.start_time).total_seconds()
+        iter_text = f"{iteration}" if max_iterations is None else f"{iteration}/{max_iterations}"
+        self.session_start_time = time.time()
+        self.live_dashboard_active = True
+        self.session_iteration = iteration
+        self.session_max_iterations = max_iterations
+        self.session_errors: List[str] = []
+        self.session_thinking: List[str] = []
+        self.project_dir = project_dir
+        
+        def make_dashboard() -> Layout:
+            # Create layout with multiple sections
+            layout = Layout()
+            layout.split_column(
+                Layout(name="breadcrumb", size=3),
+                Layout(name="status", size=8),
+                Layout(name="activity", size=6),
+            )
+            
+            # Breadcrumbs with test progress
+            breadcrumb_parts = []
+            
+            # Get test progress if project_dir available
+            test_info = ""
+            if self.project_dir:
+                try:
+                    from progress import count_passing_tests
+                    passing, total = count_passing_tests(self.project_dir)
+                    if total > 0:
+                        percentage = int((passing / total) * 100)
+                        test_info = f" [dim]│[/] Tests: [cyan]{passing}[/]/[dim]{total}[/] [yellow]({percentage}%)[/]"
+                except:
+                    pass
+            
+            if max_iterations:
+                for i in range(1, max_iterations + 1):
+                    if i < iteration:
+                        breadcrumb_parts.append(f"[dim green]✓ {i}[/]")
+                    elif i == iteration:
+                        breadcrumb_parts.append(f"[bold cyan]▶ Session {i}[/]")
+                    else:
+                        breadcrumb_parts.append(f"[dim]○ {i}[/]")
+                breadcrumb_text = "  ".join(breadcrumb_parts) + test_info
+            else:
+                breadcrumb_text = f"[bold cyan]▶ Session {iteration}[/] [dim]→ ∞[/]" + test_info
+            
+            layout["breadcrumb"].update(Panel(
+                Align.center(Text.from_markup(breadcrumb_text)),
+                border_style="bright_black",
+                box=box.SIMPLE
+            ))
+            
+            # Status panel
+            elapsed = time.time() - self.session_start_time
             elapsed_str = f"{int(elapsed // 60):02d}:{int(elapsed % 60):02d}"
             
-            status_table.add_row("Status:", "[cyan]🔄 Active[/]")
-            status_table.add_row("Elapsed:", f"[yellow]{elapsed_str}[/]")
-            status_table.add_row("Iteration:", f"[magenta]{iter_text}[/]")
-            status_table.add_row("Tokens:", f"[green]{self.total_tokens:,}[/]")
-            status_table.add_row("Tools Called:", f"[blue]{self.tools_called}[/]")
+            status_grid = Table.grid(padding=(0, 2))
+            status_grid.add_column(style="dim", justify="right")
+            status_grid.add_column(style="bold")
+            status_grid.add_column(style="dim", justify="right")
+            status_grid.add_column(style="bold")
             
-            return Panel(
-                status_table,
-                title="[bold cyan]Agent Dashboard[/]",
-                border_style="cyan",
-                box=box.ROUNDED,
+            # Calculate stats
+            tools_completed = self.tools_called
+            success_count = sum(stats.get("success", 0) for stats in self.tool_stats.values())
+            error_count = sum(stats.get("error", 0) for stats in self.tool_stats.values())
+            
+            status_grid.add_row(
+                "⏱ Time:", f"[yellow]{elapsed_str}[/]",
+                "🔧 Tools:", f"[cyan]{tools_completed}[/]"
             )
+            status_grid.add_row(
+                "✓ Success:", f"[green]{success_count}[/]",
+                "✗ Errors:", f"[red]{error_count}[/]" if error_count > 0 else "[dim]0[/]"
+            )
+            
+            # Add test progress bar if available
+            if self.project_dir:
+                try:
+                    from progress import count_passing_tests
+                    passing, total = count_passing_tests(self.project_dir)
+                    if total > 0:
+                        progress_pct = passing / total
+                        bar_width = 40
+                        filled = int(bar_width * progress_pct)
+                        bar = "█" * filled + "░" * (bar_width - filled)
+                        status_grid.add_row(
+                            "", "",
+                            "📊 Tests:", f"[green]{bar}[/] [cyan]{passing}[/]/[dim]{total}[/]"
+                        )
+                except:
+                    pass
+            
+            layout["status"].update(Panel(
+                status_grid,
+                title="[bold]Status",
+                border_style="cyan",
+                box=box.ROUNDED
+            ))
+            
+            # Activity panel
+            activity_text = Text()
+            
+            # Show current batch status
+            if self.current_batch and self.current_batch.tools:
+                batch = self.current_batch
+                completed = sum(1 for t in batch.tools if t["status"] != "pending")
+                
+                # Progress bar
+                progress = completed / batch.total if batch.total > 0 else 0
+                bar_width = 30
+                filled = int(bar_width * progress)
+                bar = "█" * filled + "░" * (bar_width - filled)
+                
+                activity_text.append(f"Tools: ", style="dim")
+                activity_text.append(f"{bar} {completed}/{batch.total}\n", style="cyan")
+                
+                # Current tool
+                if batch.tools:
+                    last_tool = batch.tools[-1]
+                    if last_tool["status"] == "pending":
+                        activity_text.append("\n🔄 ", style="cyan")
+                        activity_text.append(f"{last_tool['name']}...", style="bold cyan")
+                    elif last_tool["status"] == "success":
+                        activity_text.append("\n✓ ", style="green")
+                        activity_text.append(f"{last_tool['name']}", style="dim green")
+                    elif last_tool["status"] == "error":
+                        activity_text.append("\n✗ ", style="red")
+                        activity_text.append(f"{last_tool['name']}", style="dim red")
+            else:
+                # Show last thinking
+                if self.session_thinking:
+                    last_thought = self.session_thinking[-1]
+                    if len(last_thought) > 60:
+                        last_thought = last_thought[:57] + "..."
+                    activity_text.append("💭 ", style="magenta")
+                    activity_text.append(last_thought, style="italic dim")
+                else:
+                    activity_text.append("⏳ Processing...", style="dim")
+            
+            layout["activity"].update(Panel(
+                activity_text,
+                title="[bold]Current Activity",
+                border_style="blue",
+                box=box.ROUNDED
+            ))
+            
+            return layout
         
-        return Live(make_dashboard(), console=console, refresh_per_second=4)
+        # Always show live dashboard (except in quiet mode)
+        with Live(make_dashboard(), console=console, refresh_per_second=4, transient=False) as live:
+            self.current_live_dashboard = live
+            try:
+                yield live
+            finally:
+                self.current_live_dashboard = None
+                self.live_dashboard_active = False
+                
+                # Show errors if any
+                if self.session_errors:
+                    console.print()
+                    error_panel = Panel(
+                        "\n".join(f"[red]✗[/] {err}" for err in self.session_errors[-3:]),
+                        title=f"[bold red]⚠ Errors ({len(self.session_errors)})[/]",
+                        border_style="red",
+                        box=box.ROUNDED
+                    )
+                    console.print(error_panel)
 
-    def update_tool_call(self, tool_name: str, status: str = "running"):
+    def update_tool_call(self, tool_name: str, status: str = "running", output: Optional[str] = None):
         """Update tool call status."""
-        icons = {
-            "running": "🔄",
-            "success": "✓",
-            "error": "✗",
-        }
-        colors = {
-            "running": "cyan",
-            "success": "green",
-            "error": "red",
-        }
-        
-        icon = icons.get(status, "•")
-        color = colors.get(status, "white")
-        
-        console.print(f"  [{color}]{icon}[/] [dim]{tool_name}[/]")
-        
         # Update stats
         if tool_name not in self.tool_stats:
             self.tool_stats[tool_name] = {"count": 0, "success": 0, "error": 0}
@@ -204,8 +474,44 @@ class AgentConsole:
             self.tool_stats[tool_name]["success"] += 1
         elif status == "error":
             self.tool_stats[tool_name]["error"] += 1
+            # Track errors for display
+            if output:
+                self.session_errors.append(f"{tool_name}: {output[:100]}")
         
         self.tools_called += 1
+        
+        # Add to current batch
+        if self.current_batch:
+            if status == "running":
+                self.current_batch.add_tool(tool_name, "pending")
+            else:
+                self.current_batch.mark_complete(status == "success", output)
+        
+        # Only show individual tools in verbose mode when no dashboard
+        if self.verbosity == "verbose" and not self.live_dashboard_active:
+            icons = {
+                "running": "🔄",
+                "success": "✓",
+                "error": "✗",
+            }
+            colors = {
+                "running": "cyan",
+                "success": "green",
+                "error": "red",
+            }
+            
+            icon = icons.get(status, "•")
+            color = colors.get(status, "white")
+            
+            console.print(f"  [{color}]{icon}[/] [dim]{tool_name}[/]")
+            
+            # Show output for errors or if explicitly provided and short
+            if output:
+                if status == "error":
+                    console.print(f"     [red]{output[:200]}{'...' if len(output) > 200 else ''}[/]")
+                elif len(output) < 100:
+                    console.print(f"     [dim]{output}[/]")
+        # Otherwise, the dashboard shows current progress
 
     def print_iteration_summary(
         self,
