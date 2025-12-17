@@ -21,6 +21,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from agent import run_autonomous_agent
+from console_output import agent_console, print_banner, print_phase_start, print_step
 
 
 # Configuration
@@ -37,7 +38,7 @@ def init_git_repo(project_dir: Path) -> bool:
         # Check if already a git repo
         git_dir = project_dir / ".git"
         if git_dir.exists():
-            print(f"ℹ️  Git repository already exists in {project_dir}")
+            print_step(f"Git repository already exists in {project_dir}", "info")
             return True
 
         subprocess.run(
@@ -62,13 +63,13 @@ def init_git_repo(project_dir: Path) -> bool:
             text=True
         )
 
-        print(f"✅ Initialized git repository in {project_dir}")
+        print_step(f"Initialized git repository in {project_dir}", "success")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"⚠️  Failed to initialize git repo: {e.stderr}")
+        print_step(f"Failed to initialize git repo: {e.stderr}", "error")
         return False
     except FileNotFoundError:
-        print("⚠️  Git not found. Skipping repository initialization.")
+        print_step("Git not found. Skipping repository initialization.", "warning")
         return False
 
 
@@ -93,7 +94,7 @@ def git_commit(project_dir: Path, message: str) -> bool:
         )
 
         if not result.stdout.strip():
-            print("ℹ️  No changes to commit")
+            print_step("No changes to commit", "info")
             return False
 
         # Commit
@@ -104,10 +105,10 @@ def git_commit(project_dir: Path, message: str) -> bool:
             capture_output=True,
             text=True
         )
-        print(f"✅ Committed: {message}")
+        print_step(f"Committed: {message}", "success")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"⚠️  Git commit failed: {e.stderr}")
+        print_step(f"Git commit failed: {e.stderr}", "error")
         return False
 
 
@@ -153,7 +154,7 @@ node_modules/
     gitignore_path = project_dir / ".gitignore"
     if not gitignore_path.exists():
         gitignore_path.write_text(gitignore_content)
-        print("✅ Created .gitignore")
+        print_step("Created .gitignore", "success")
 
 
 def parse_args() -> argparse.Namespace:
@@ -231,11 +232,14 @@ def main() -> None:
 
     # Check for API key
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("Error: ANTHROPIC_API_KEY not found")
-        print("\nGet your API key from: https://console.anthropic.com/")
-        print("\nThen either:")
-        print("  1. Create a .env file with: ANTHROPIC_API_KEY=your-api-key-here")
-        print("  2. Or export it: export ANTHROPIC_API_KEY='your-api-key-here'")
+        agent_console.print_error(
+            "Missing API Key",
+            "ANTHROPIC_API_KEY not found in environment",
+            "Get your API key from: https://console.anthropic.com/\n\n"
+            "Then either:\n"
+            "  1. Create a .env file with: ANTHROPIC_API_KEY=your-api-key-here\n"
+            "  2. Or export it: export ANTHROPIC_API_KEY='your-api-key-here'"
+        )
         return
 
     # Automatically place projects in generations/ directory unless already specified
@@ -249,13 +253,19 @@ def main() -> None:
             # Prepend generations/ to relative paths
             project_dir = Path("generations") / project_dir
 
+    # Print beautiful banner
+    print_banner(args.model, str(project_dir), args.config)
+
     # Initialize git repository (unless --no-git flag is set)
     git_enabled = not args.no_git
     if git_enabled:
-        project_dir.mkdir(parents=True, exist_ok=True)
-        if init_git_repo(project_dir):
-            create_gitignore(project_dir)
-            git_commit(project_dir, "Initial commit: project setup")
+        with print_phase_start("Environment Setup"):
+            project_dir.mkdir(parents=True, exist_ok=True)
+            print_step("Project directory created", "success")
+            
+            if init_git_repo(project_dir):
+                create_gitignore(project_dir)
+                git_commit(project_dir, "Initial commit: project setup")
 
     # Run the agent
     try:
@@ -269,10 +279,9 @@ def main() -> None:
             )
         )
     except KeyboardInterrupt:
-        print("\n\nInterrupted by user")
-        print("To resume, run the same command again")
+        agent_console.print_keyboard_interrupt()
     except Exception as e:
-        print(f"\nFatal error: {e}")
+        agent_console.print_error("Fatal Error", str(e))
         raise
 
 
