@@ -42,12 +42,33 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
     2. Permissions - File operations restricted to project_dir only
     3. Security hooks - Bash commands validated against an allowlist
        (see security.py for ALLOWED_COMMANDS)
+    
+    API Configuration:
+    - Use ANTHROPIC_API_KEY for direct Anthropic API access
+    - OR use AZURE_FOUNDRY_API_KEY + AZURE_FOUNDRY_BASE_URL for Azure Foundry
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
+    # Check for Azure Foundry configuration first
+    azure_api_key = os.environ.get("AZURE_FOUNDRY_API_KEY")
+    azure_base_url = os.environ.get("AZURE_FOUNDRY_BASE_URL")
+    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
+    
+    # Determine which API configuration to use
+    if azure_api_key and azure_base_url:
+        api_key = azure_api_key
+        base_url = azure_base_url
+        print(f"Using Azure Foundry endpoint: {base_url}")
+    elif anthropic_api_key:
+        api_key = anthropic_api_key
+        base_url = None  # Use default Anthropic endpoint
+        print("Using direct Anthropic API")
+    else:
         raise ValueError(
-            "ANTHROPIC_API_KEY environment variable not set.\n"
-            "Get your API key from: https://console.anthropic.com/"
+            "No API configuration found.\n\n"
+            "Option 1 - Direct Anthropic API:\n"
+            "  Set ANTHROPIC_API_KEY (get from https://console.anthropic.com/)\n\n"
+            "Option 2 - Azure Foundry:\n"
+            "  Set both AZURE_FOUNDRY_API_KEY and AZURE_FOUNDRY_BASE_URL\n\n"
+            "Add these to a .env file or export as environment variables."
         )
 
     # Create comprehensive security settings
@@ -85,18 +106,23 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
     print("   - Bash commands restricted to allowlist (see security.py)")
     print()
 
-    return ClaudeSDKClient(
-        options=ClaudeCodeOptions(
-            model=model,
-            system_prompt="You are an expert backend API developer building production-quality FastAPI applications with comprehensive test coverage.",
-            allowed_tools=BUILTIN_TOOLS,
-            hooks={
-                "PreToolUse": [
-                    HookMatcher(matcher="Bash", hooks=[bash_security_hook]),
-                ],
-            },
-            max_turns=1000,
-            cwd=str(project_dir.resolve()),
-            settings=str(settings_file.resolve()),  # Use absolute path
-        )
+    # Build client options
+    client_options = ClaudeCodeOptions(
+        model=model,
+        system_prompt="You are an expert backend API developer building production-quality FastAPI applications with comprehensive test coverage.",
+        allowed_tools=BUILTIN_TOOLS,
+        hooks={
+            "PreToolUse": [
+                HookMatcher(matcher="Bash", hooks=[bash_security_hook]),
+            ],
+        },
+        max_turns=1000,
+        cwd=str(project_dir.resolve()),
+        settings=str(settings_file.resolve()),  # Use absolute path
     )
+    
+    # Add base_url if using Azure Foundry
+    if base_url:
+        client_options.base_url = base_url
+    
+    return ClaudeSDKClient(options=client_options)

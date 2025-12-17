@@ -61,9 +61,18 @@
 npm install -g @anthropic-ai/claude-code
 pip install -r requirements.txt
 
-# Set your API key
+# Configure API access (choose one option)
+
+# Option 1: Direct Anthropic API
 export ANTHROPIC_API_KEY='your-key-here'
 # or create .env file with: ANTHROPIC_API_KEY=your-key-here
+
+# Option 2: Azure Foundry
+export AZURE_FOUNDRY_API_KEY='your-azure-key'
+export AZURE_FOUNDRY_BASE_URL='https://your-endpoint.inference.ai.azure.com'
+# or add to .env file:
+#   AZURE_FOUNDRY_API_KEY=your-azure-key
+#   AZURE_FOUNDRY_BASE_URL=https://your-endpoint.inference.ai.azure.com
 ```
 
 ### Generate Your API

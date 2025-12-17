@@ -265,15 +265,23 @@ def main() -> None:
     else:
         agent_console.set_verbosity("normal")
 
-    # Check for API key
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    # Check for API key - support both Anthropic and Azure Foundry
+    has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    has_azure = bool(os.environ.get("AZURE_FOUNDRY_API_KEY") and os.environ.get("AZURE_FOUNDRY_BASE_URL"))
+    
+    if not (has_anthropic or has_azure):
         agent_console.print_error(
-            "Missing API Key",
-            "ANTHROPIC_API_KEY not found in environment",
-            "Get your API key from: https://console.anthropic.com/\n\n"
-            "Then either:\n"
-            "  1. Create a .env file with: ANTHROPIC_API_KEY=your-api-key-here\n"
-            "  2. Or export it: export ANTHROPIC_API_KEY='your-api-key-here'"
+            "Missing API Configuration",
+            "No API credentials found in environment",
+            "You need to configure either:\n\n"
+            "Option 1 - Direct Anthropic API:\n"
+            "  Set ANTHROPIC_API_KEY (get from https://console.anthropic.com/)\n"
+            "  Example: ANTHROPIC_API_KEY=your-api-key-here\n\n"
+            "Option 2 - Azure Foundry:\n"
+            "  Set both AZURE_FOUNDRY_API_KEY and AZURE_FOUNDRY_BASE_URL\n"
+            "  Example: AZURE_FOUNDRY_API_KEY=your-key\n"
+            "           AZURE_FOUNDRY_BASE_URL=https://your-endpoint.inference.ai.azure.com\n\n"
+            "Add these to a .env file or export as environment variables."
         )
         return
 
