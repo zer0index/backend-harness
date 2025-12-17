@@ -38,8 +38,7 @@ ALLOWED_COMMANDS = {
     "uvicorn",
     # Database tools
     "alembic",
-    "docker",
-    "docker-compose",
+    "docker",  # Modern Docker Compose V2 uses: docker compose (not docker-compose)
     # Optional: linting/formatting
     "ruff",
     "black",

@@ -204,7 +204,7 @@ cd generations/test_todo
 ./init.sh
 
 # Or manually:
-docker-compose up -d postgres
+docker compose up -d postgres
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000

@@ -42,13 +42,13 @@ Ensure the development environment is ready:
 
 ```bash
 # Start PostgreSQL database
-docker-compose up -d postgres
+docker compose up -d postgres
 
 # Wait for database to be ready
 sleep 5
 
 # Check database is running
-docker-compose ps
+docker compose ps
 
 # Run migrations
 alembic upgrade head

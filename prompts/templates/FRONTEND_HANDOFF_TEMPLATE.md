@@ -17,7 +17,7 @@ cd [project-name]
 ./init.sh
 
 # Or manually:
-docker-compose up -d postgres
+docker compose up -d postgres
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
@@ -575,7 +575,7 @@ curl -X DELETE http://localhost:8000/api/v1/tasks/1
 ### Development
 - **Setup Guide**: `README.md` in project root
 - **Init Script**: `./init.sh` - One-command environment setup
-- **Docker Compose**: `docker-compose.yml` - PostgreSQL configuration
+- **Docker Compose**: `docker compose.yml` - PostgreSQL configuration
 - **Database Migrations**: `alembic/versions/` - Alembic migration files
 
 ---
@@ -590,7 +590,7 @@ curl -X DELETE http://localhost:8000/api/v1/tasks/1
 - **Authentication** → Currently using mock auth (see Authentication section above)
 
 **Common Issues:**
-- **Database connection errors** → Make sure PostgreSQL is running: `docker-compose ps`
+- **Database connection errors** → Make sure PostgreSQL is running: `docker compose ps`
 - **Migration errors** → Run `alembic upgrade head` to apply migrations
 - **Import errors** → Reinstall dependencies: `pip install -r requirements.txt`
 - **CORS errors** → CORS is enabled for development (all origins allowed)

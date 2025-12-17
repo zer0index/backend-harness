@@ -203,7 +203,7 @@ project/
 ├── alembic/                 # Database migrations
 │   ├── env.py
 │   └── versions/
-├── docker-compose.yml       # PostgreSQL service
+├── docker-compose.yml       # PostgreSQL service (use with: docker compose)
 ├── alembic.ini
 ├── pyproject.toml           # Dependencies (or requirements.txt)
 ├── .env.example             # Environment variables template
@@ -220,7 +220,7 @@ project/
 4. **app/models/base.py** - Base model with common fields (id, created_at, updated_at)
 5. **app/dependencies/auth.py** - Mock authentication that always returns a test user
 6. **tests/conftest.py** - Fixtures for TestClient, test database, mock auth
-7. **docker-compose.yml** - PostgreSQL 15+ with healthcheck
+7. **docker-compose.yml** - PostgreSQL 15+ with healthcheck (use with: docker compose)
 8. **alembic.ini** - Database migration configuration
 9. **.env.example** - Template for environment variables
 
@@ -257,7 +257,7 @@ pip install -r requirements.txt
 
 # Start PostgreSQL with Docker
 echo "Starting PostgreSQL database..."
-docker-compose up -d postgres
+docker compose up -d postgres
 
 # Wait for database to be ready
 echo "Waiting for database to be ready..."

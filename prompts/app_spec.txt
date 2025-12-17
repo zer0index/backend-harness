@@ -428,7 +428,7 @@ project/
 ├── alembic/
 │   ├── env.py
 │   └── versions/
-├── docker-compose.yml
+├── docker compose.yml
 ├── alembic.ini
 ├── pyproject.toml
 ├── .env.example

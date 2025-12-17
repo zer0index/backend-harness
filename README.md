@@ -169,7 +169,7 @@ This harness uses a defense-in-depth security approach (see `security.py` and `c
    - Python development: `python`, `python3`, `pip`, `pip3`
    - Testing: `pytest`, `coverage`
    - FastAPI server: `uvicorn`
-   - Database tools: `alembic`, `docker`, `docker-compose`
+   - Database tools: `alembic`, `docker` (includes `docker compose`)
    - Linting/formatting: `ruff`, `black`, `mypy`
    - Node.js (for tooling): `npm`, `node`
    - Version control: `git`
@@ -234,7 +234,7 @@ my_task_api/
 ├── alembic/                 # Database migrations
 │   ├── env.py
 │   └── versions/
-├── docker-compose.yml       # PostgreSQL service
+├── docker-compose.yml       # PostgreSQL service (use with: docker compose)
 ├── alembic.ini
 ├── pyproject.toml           # Dependencies
 ├── .env.example             # Environment variables template
@@ -258,7 +258,7 @@ cd generations/my_task_api
 
 # Or manually:
 # 1. Start PostgreSQL
-docker-compose up -d postgres
+docker compose up -d postgres
 
 # 2. Install Python dependencies
 pip install -r requirements.txt
@@ -340,7 +340,7 @@ Create a `.env` file with `ANTHROPIC_API_KEY=your-key` or export it in your shel
 The generated project's dependencies need to be installed. Run `pip install -r requirements.txt` in the project directory.
 
 **"PostgreSQL connection failed"**
-Ensure Docker is running and PostgreSQL is started: `docker-compose up -d postgres`
+Ensure Docker is running and PostgreSQL is started: `docker compose up -d postgres`
 
 ## Technology Stack (Generated Projects)
 

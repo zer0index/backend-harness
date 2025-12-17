@@ -56,7 +56,7 @@ def test_extract_commands():
         ("git status || git init", ["git", "git"]),
         ("python app.py", ["python"]),
         ("pytest tests/ && coverage report", ["pytest", "coverage"]),
-        ("docker-compose up -d", ["docker-compose"]),
+        ("docker compose up -d", ["docker"]),
     ]
 
     for cmd, expected in test_cases:
@@ -250,8 +250,8 @@ def main():
         "alembic upgrade head",
         "alembic revision --autogenerate -m 'msg'",
         "docker ps",
-        "docker-compose up -d",
-        "docker-compose down",
+        "docker compose up -d",
+        "docker compose down",
         # Linting/formatting
         "ruff check .",
         "black .",
