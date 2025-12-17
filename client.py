@@ -76,7 +76,7 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
 
     # Write settings to a file in the project directory
     settings_file = project_dir / ".claude_settings.json"
-    with open(settings_file, "w") as f:
+    with open(settings_file, "w", encoding='utf-8') as f:
         json.dump(security_settings, f, indent=2)
 
     print(f"Created security settings at {settings_file}")

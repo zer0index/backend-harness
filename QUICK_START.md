@@ -8,8 +8,9 @@ This guide shows you how to quickly test the handoff documentation system with a
 # Install dependencies
 pip install -r requirements.txt
 
-# Set API key
-export ANTHROPIC_API_KEY='your-api-key-here'
+# Create .env file with your API key
+cp .env.example .env
+# Edit .env and add: ANTHROPIC_API_KEY=your-api-key-here
 ```
 
 ## Quick Test with Todo List (Recommended)

@@ -17,6 +17,8 @@ import asyncio
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from agent import run_autonomous_agent
 
 
@@ -43,8 +45,12 @@ Examples:
   # Continue existing project
   python autonomous_agent_demo.py --project-dir ./claude_clone
 
-Environment Variables:
-  ANTHROPIC_API_KEY    Your Anthropic API key (required)
+Configuration:
+  Create a .env file with your API key:
+    ANTHROPIC_API_KEY=your-api-key-here
+
+  Or set it as an environment variable:
+    export ANTHROPIC_API_KEY='your-api-key-here'
         """,
     )
 
@@ -82,14 +88,18 @@ Environment Variables:
 
 def main() -> None:
     """Main entry point."""
+    # Load environment variables from .env file
+    load_dotenv()
+
     args = parse_args()
 
     # Check for API key
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("Error: ANTHROPIC_API_KEY environment variable not set")
+        print("Error: ANTHROPIC_API_KEY not found")
         print("\nGet your API key from: https://console.anthropic.com/")
-        print("\nThen set it:")
-        print("  export ANTHROPIC_API_KEY='your-api-key-here'")
+        print("\nThen either:")
+        print("  1. Create a .env file with: ANTHROPIC_API_KEY=your-api-key-here")
+        print("  2. Or export it: export ANTHROPIC_API_KEY='your-api-key-here'")
         return
 
     # Automatically place projects in generations/ directory unless already specified

@@ -92,7 +92,16 @@ claude --version  # Should be latest version
 pip show claude-code-sdk  # Check SDK is installed
 ```
 
-**API Key:** Set your Anthropic API key:
+**API Key:** Create a `.env` file with your Anthropic API key:
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env and add your API key:
+# ANTHROPIC_API_KEY=your-api-key-here
+```
+
+Alternatively, export it as an environment variable:
 ```bash
 export ANTHROPIC_API_KEY='your-api-key-here'
 ```
@@ -325,7 +334,7 @@ This is normal. The initializer agent is generating 100-200 detailed API test sp
 The agent tried to run a command not in the allowlist. This is the security system working as intended. If needed, add the command to `ALLOWED_COMMANDS` in `security.py` and run `python test_security.py` to validate.
 
 **"API key not set"**
-Ensure `ANTHROPIC_API_KEY` is exported in your shell environment.
+Create a `.env` file with `ANTHROPIC_API_KEY=your-key` or export it in your shell.
 
 **"pytest not found"**
 The generated project's dependencies need to be installed. Run `pip install -r requirements.txt` in the project directory.

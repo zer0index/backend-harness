@@ -29,7 +29,7 @@ def load_config(config_name: str = 'medium') -> dict:
         print(f"⚠️  Warning: Config '{config_name}' not found, using 'medium'")
         config_path = CONFIGS_DIR / 'medium.json'
 
-    with open(config_path) as f:
+    with open(config_path, encoding='utf-8') as f:
         config = json.load(f)
 
     print(f"📋 Using '{config['app_size']}' configuration: {config['description']}")
@@ -72,7 +72,7 @@ def apply_config_to_prompt(prompt_text: str, config: dict) -> str:
 def load_prompt(name: str) -> str:
     """Load a prompt template from the prompts directory."""
     prompt_path = PROMPTS_DIR / f"{name}.md"
-    return prompt_path.read_text()
+    return prompt_path.read_text(encoding='utf-8')
 
 
 def get_initializer_prompt(config_name: str = 'medium') -> str:

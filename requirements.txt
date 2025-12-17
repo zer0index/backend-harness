@@ -1,6 +1,9 @@
 # Claude Agent SDK - Required for the harness itself
 claude-code-sdk>=0.0.25
 
+# Environment variable management
+python-dotenv>=1.0.0
+
 # ============================================================
 # Generated Project Dependencies (installed by the agent)
 # ============================================================
