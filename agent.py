@@ -183,6 +183,30 @@ async def run_autonomous_agent(
 
         # Handle status
         if status == "continue":
+            # Check if project is complete (all tests passing)
+            from progress import count_passing_tests
+
+            passing, total = count_passing_tests(project_dir)
+
+            # If all tests pass, auto-stop
+            if total > 0 and passing == total:
+                print("\n" + "=" * 70)
+                print("  🎉 PROJECT COMPLETE - AUTO-STOPPING")
+                print("=" * 70)
+                print(f"\n✅ All {total} features implemented")
+                print(f"✅ All tests passing ({passing}/{total})")
+                print("\nProject is production-ready!")
+                print_progress_summary(project_dir)
+                print("\n" + "-" * 70)
+                print("  To continue working on this project:")
+                print("-" * 70)
+                print(f"\n  cd {project_dir.resolve()}")
+                print("  ./init.sh")
+                print("\n  Or run the harness again to add more features")
+                print("-" * 70)
+                break  # Exit the while loop
+
+            # Otherwise, continue to next session
             print(f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s...")
             print_progress_summary(project_dir)
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
