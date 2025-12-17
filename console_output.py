@@ -73,26 +73,44 @@ class AgentConsole:
 
     @contextmanager
     def phase(self, name: str):
-        """Context manager for phases with spinner animation."""
+        """Context manager for phases with animated header."""
         self.current_phase = name
         
-        with Progress(
-            SpinnerColumn(spinner_name="dots"),
-            TextColumn("[bold blue]{task.description}"),
-            console=console,
-        ) as progress:
-            task = progress.add_task(f"[bold cyan]Phase:[/] {name}", total=None)
-            start = time.time()
+        # Print phase header
+        header = Text()
+        header.append("╭─ ", style="bright_cyan")
+        header.append("Phase: ", style="bold cyan")
+        header.append(name, style="bold white")
+        header.append(" " + "─" * (60 - len(name)), style="bright_cyan")
+        header.append("╮", style="bright_cyan")
+        console.print(header)
+        
+        start = time.time()
+        
+        try:
+            yield
+            duration = time.time() - start
             
-            try:
-                yield progress
-                duration = time.time() - start
-                progress.update(task, description=f"[bold cyan]Phase:[/] {name} ✓")
-                console.print(f"[dim]  Completed in {duration:.1f}s[/]\n")
-            except Exception as e:
-                progress.update(task, description=f"[bold cyan]Phase:[/] {name} ✗")
-                console.print(f"[red]  Failed: {e}[/]\n")
-                raise
+            # Print phase footer
+            footer = Text()
+            footer.append("╰─ ", style="bright_cyan")
+            footer.append("✓ Completed in ", style="green")
+            footer.append(f"{duration:.1f}s", style="bold yellow")
+            footer.append(" " + "─" * (47 - len(f"{duration:.1f}s")), style="bright_cyan")
+            footer.append("╯", style="bright_cyan")
+            console.print(footer)
+            console.print()
+        except Exception as e:
+            duration = time.time() - start
+            footer = Text()
+            footer.append("╰─ ", style="bright_cyan")
+            footer.append("✗ Failed after ", style="red")
+            footer.append(f"{duration:.1f}s", style="bold yellow")
+            footer.append(" " + "─" * (45 - len(f"{duration:.1f}s")), style="bright_cyan")
+            footer.append("╯", style="bright_cyan")
+            console.print(footer)
+            console.print(f"[red]Error: {e}[/]\n")
+            raise
 
     def print_phase_step(self, message: str, status: str = "success"):
         """Print a step within a phase."""
@@ -113,7 +131,7 @@ class AgentConsole:
         
         icon = icons.get(status, "•")
         color = colors.get(status, "white")
-        console.print(f"[{color}]{icon}[/] {message}")
+        console.print(f"│ [{color}]{icon}[/] {message}")
 
     def start_iteration(self, iteration: int, max_iterations: Optional[int] = None):
         """Start a new iteration with animated header."""

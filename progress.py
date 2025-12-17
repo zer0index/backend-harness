@@ -38,20 +38,48 @@ def count_passing_tests(project_dir: Path) -> tuple[int, int]:
 
 def print_session_header(session_num: int, is_initializer: bool) -> None:
     """Print a formatted header for the session."""
+    from console_output import console
+    from rich.text import Text
+    from rich import box
+    from rich.panel import Panel
+    
     session_type = "INITIALIZER" if is_initializer else "CODING AGENT"
-
-    print("\n" + "=" * 70)
-    print(f"  SESSION {session_num}: {session_type}")
-    print("=" * 70)
-    print()
+    
+    header = Text()
+    header.append(f"🤖 SESSION {session_num}: ", style="bold cyan")
+    header.append(session_type, style="bold yellow")
+    
+    console.print()
+    console.print(Panel(header, border_style="cyan", box=box.DOUBLE))
+    console.print()
 
 
 def print_progress_summary(project_dir: Path) -> None:
     """Print a summary of current progress."""
+    from console_output import console
+    from rich.progress import Progress, BarColumn, TextColumn
+    from rich.text import Text
+    
     passing, total = count_passing_tests(project_dir)
 
     if total > 0:
         percentage = (passing / total) * 100
-        print(f"\nProgress: {passing}/{total} tests passing ({percentage:.1f}%)")
+        
+        # Create a visual progress bar
+        progress_text = Text()
+        progress_text.append(f"Progress: ", style="bold")
+        progress_text.append(f"{passing}/{total}", style="cyan")
+        progress_text.append(f" tests passing (", style="dim")
+        progress_text.append(f"{percentage:.1f}%", style="green" if percentage == 100 else "yellow")
+        progress_text.append(")", style="dim")
+        
+        console.print()
+        console.print(progress_text)
+        
+        # Visual bar
+        bar_length = 50
+        filled = int(bar_length * passing / total)
+        bar = "█" * filled + "░" * (bar_length - filled)
+        console.print(f"[green]{bar}[/]")
     else:
-        print("\nProgress: feature_list.json not yet created")
+        console.print("\n[dim]Progress: feature_list.json not yet created[/]")

@@ -10,8 +10,12 @@ from pathlib import Path
 from typing import Optional
 
 from claude_code_sdk import ClaudeSDKClient
+from rich import box
+from rich.panel import Panel
+from rich.text import Text
 
 from client import create_client
+from console_output import agent_console, console
 from progress import print_session_header, print_progress_summary
 from prompts import get_initializer_prompt, get_coding_prompt, copy_spec_to_project, copy_templates_to_project
 
@@ -48,7 +52,7 @@ async def run_agent_session(
         - "continue" if agent should continue working
         - "error" if an error occurred
     """
-    print("Sending prompt to Claude Agent SDK...\n")
+    console.print("[dim]Sending prompt to Claude Agent SDK...[/]\n")
 
     try:
         # Send the query
@@ -66,15 +70,15 @@ async def run_agent_session(
 
                     if block_type == "TextBlock" and hasattr(block, "text"):
                         response_text += block.text
-                        print(block.text, end="", flush=True)
+                        console.print(block.text, end="")
                     elif block_type == "ToolUseBlock" and hasattr(block, "name"):
-                        print(f"\n[Tool: {block.name}]", flush=True)
+                        console.print(f"\n[bold cyan]🔧 Tool:[/] [yellow]{block.name}[/]")
                         if hasattr(block, "input"):
                             input_str = str(block.input)
                             if len(input_str) > 200:
-                                print(f"   Input: {input_str[:200]}...", flush=True)
+                                console.print(f"   [dim]Input: {input_str[:200]}...[/]")
                             else:
-                                print(f"   Input: {input_str}", flush=True)
+                                console.print(f"   [dim]Input: {input_str}[/]")
 
             # Handle UserMessage (tool results)
             elif msg_type == "UserMessage" and hasattr(msg, "content"):
@@ -87,24 +91,24 @@ async def run_agent_session(
 
                         # Check if command was blocked by security hook
                         if "blocked" in str(result_content).lower():
-                            print(f"   [BLOCKED] {result_content}", flush=True)
+                            console.print(f"   [bold red]🚫 BLOCKED[/] [dim]{result_content}[/]")
                         elif is_error:
                             # Show errors (truncated)
                             error_str = str(result_content)[:500]
-                            print(f"   [Error] {error_str}", flush=True)
+                            console.print(f"   [red]✗ Error:[/] [dim]{error_str}[/]")
                         else:
                             # Tool succeeded - show output if there is any
                             output = str(result_content).strip()
                             if output and len(output) > 0:
                                 # Show first 300 chars of output for debugging
                                 if len(output) > 300:
-                                    print(f"   [Done] {output[:300]}...", flush=True)
+                                    console.print(f"   [green]✓ Done:[/] [dim]{output[:300]}...[/]")
                                 else:
-                                    print(f"   [Done] {output}", flush=True)
+                                    console.print(f"   [green]✓ Done:[/] [dim]{output}[/]")
                             else:
-                                print("   [Done]", flush=True)
+                                console.print("   [green]✓ Done[/]")
 
-        print("\n" + "-" * 70 + "\n")
+        console.print()
         return "continue", response_text
 
     except Exception as e:
@@ -129,16 +133,20 @@ async def run_autonomous_agent(
         config_name: Configuration size (small, medium, large)
         git_enabled: Whether to commit changes after each iteration
     """
-    print("\n" + "=" * 70)
-    print("  AUTONOMOUS CODING AGENT DEMO")
-    print("=" * 70)
-    print(f"\nProject directory: {project_dir}")
-    print(f"Model: {model}")
+    # Info panel
+    info = Text()
+    info.append("Project directory: ", style="dim")
+    info.append(f"{project_dir}\n", style="cyan")
+    info.append("Model: ", style="dim")
+    info.append(f"{model}\n", style="green")
+    info.append("Max iterations: ", style="dim")
     if max_iterations:
-        print(f"Max iterations: {max_iterations}")
+        info.append(f"{max_iterations}", style="yellow")
     else:
-        print("Max iterations: Unlimited (will run until completion)")
-    print()
+        info.append("Unlimited", style="yellow")
+    
+    console.print(Panel(info, title="[bold]Configuration[/]", border_style="blue", box=box.ROUNDED))
+    console.print()
 
     # Create project directory
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -148,20 +156,24 @@ async def run_autonomous_agent(
     is_first_run = not tests_file.exists()
 
     if is_first_run:
-        print("Fresh start - will use initializer agent")
-        print()
-        print("=" * 70)
-        print("  NOTE: First session takes 10-20+ minutes!")
-        print("  The agent is generating 200 detailed test cases.")
-        print("  This may appear to hang - it's working. Watch for [Tool: ...] output.")
-        print("=" * 70)
-        print()
+        console.print("[bold green]Fresh start[/] - will use initializer agent\n")
+        
+        note = Text()
+        note.append("⏱️  First session takes 10-20+ minutes!\n", style="bold yellow")
+        note.append("\nThe agent is generating detailed test cases.\n", style="dim")
+        note.append("This may appear to hang - it's working.\n", style="dim")
+        note.append("Watch for ", style="dim")
+        note.append("🔧 Tool", style="cyan")
+        note.append(" output.", style="dim")
+        
+        console.print(Panel(note, title="[bold yellow]⚠️  Important[/]", border_style="yellow", box=box.ROUNDED))
+        console.print()
         # Copy the app spec into the project directory for the agent to read
         copy_spec_to_project(project_dir, config_name)
         # Copy template files so the agent can use them
         copy_templates_to_project(project_dir)
     else:
-        print("Continuing existing project")
+        console.print("[bold blue]Continuing existing project[/]\n")
         print_progress_summary(project_dir)
 
     # Main loop
@@ -172,8 +184,13 @@ async def run_autonomous_agent(
 
         # Check max iterations
         if max_iterations and iteration > max_iterations:
-            print(f"\nReached max iterations ({max_iterations})")
-            print("To continue, run the script again without --max-iterations")
+            console.print()
+            console.print(Panel(
+                Text(f"Reached max iterations ({max_iterations})\n\nTo continue, run the script again without --max-iterations", justify="center"),
+                title="[bold yellow]⏸️  Paused[/]",
+                border_style="yellow",
+                box=box.ROUNDED
+            ))
             break
 
         # Print session header
@@ -206,58 +223,68 @@ async def run_autonomous_agent(
 
             # If all tests pass, auto-stop
             if total > 0 and passing == total:
-                print("\n" + "=" * 70)
-                print("  🎉 PROJECT COMPLETE - AUTO-STOPPING")
-                print("=" * 70)
-                print(f"\n✅ All {total} features implemented")
-                print(f"✅ All tests passing ({passing}/{total})")
-                print("\nProject is production-ready!")
+                success_text = Text()
+                success_text.append("🎉 PROJECT COMPLETE\n\n", style="bold green", justify="center")
+                success_text.append(f"✅ All {total} features implemented\n", style="green")
+                success_text.append(f"✅ All tests passing ({passing}/{total})\n\n", style="green")
+                success_text.append("Project is production-ready!", style="bold cyan")
+                
+                console.print()
+                console.print(Panel(success_text, border_style="bright_green", box=box.DOUBLE))
                 print_progress_summary(project_dir)
                 
                 # Final commit
                 if git_enabled:
                     _git_commit(project_dir, f"Project complete: all {total} tests passing")
                 
-                print("\n" + "-" * 70)
-                print("  To continue working on this project:")
-                print("-" * 70)
-                print(f"\n  cd {project_dir.resolve()}")
-                print("  ./init.sh")
-                print("\n  Or run the harness again to add more features")
-                print("-" * 70)
+                # Instructions
+                instructions = Text()
+                instructions.append("To continue working on this project:\n\n", style="bold cyan")
+                instructions.append(f"  cd {project_dir.resolve()}\n", style="yellow")
+                instructions.append("  ./init.sh\n\n", style="green")
+                instructions.append("Or run the harness again to add more features", style="dim")
+                
+                console.print()
+                console.print(Panel(instructions, border_style="cyan", box=box.ROUNDED))
                 break  # Exit the while loop
 
             # Otherwise, continue to next session
-            print(f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s...")
+            console.print(f"\n[dim]Agent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s...[/]")
             print_progress_summary(project_dir)
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
         elif status == "error":
-            print("\nSession encountered an error")
-            print("Will retry with a fresh session...")
+            console.print("\n[yellow]Session encountered an error[/]")
+            console.print("[dim]Will retry with a fresh session...[/]")
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
         # Small delay between sessions
         if max_iterations is None or iteration < max_iterations:
-            print("\nPreparing next session...\n")
+            console.print("\n[dim]Preparing next session...[/]\n")
             await asyncio.sleep(1)
 
     # Final summary
-    print("\n" + "=" * 70)
-    print("  SESSION COMPLETE")
-    print("=" * 70)
-    print(f"\nProject directory: {project_dir}")
+    summary = Text()
+    summary.append("🏁 SESSION COMPLETE\n\n", style="bold green")
+    summary.append("Project directory: ", style="dim")
+    summary.append(f"{project_dir}\n\n", style="cyan")
+    
+    console.print()
+    console.print(Panel(summary, border_style="green", box=box.ROUNDED))
     print_progress_summary(project_dir)
 
     # Print instructions for running the generated application
-    print("\n" + "-" * 70)
-    print("  TO RUN THE GENERATED APPLICATION:")
-    print("-" * 70)
-    print(f"\n  cd {project_dir.resolve()}")
-    print("  ./init.sh           # Run the setup script")
-    print("  # Or manually:")
-    print("  npm install && npm run dev")
-    print("\n  Then open http://localhost:3000 (or check init.sh for the URL)")
-    print("-" * 70)
-
-    print("\nDone!")
+    instructions = Text()
+    instructions.append("🚀 TO RUN THE GENERATED APPLICATION:\n\n", style="bold cyan")
+    instructions.append(f"  cd {project_dir.resolve()}\n", style="yellow")
+    instructions.append("  ./init.sh", style="green")
+    instructions.append("           # Run the setup script\n", style="dim")
+    instructions.append("  # Or manually:\n", style="dim")
+    instructions.append("  npm install && npm run dev\n\n", style="green")
+    instructions.append("  Then open ", style="dim")
+    instructions.append("http://localhost:3000", style="blue underline")
+    instructions.append(" (or check init.sh for the URL)", style="dim")
+    
+    console.print()
+    console.print(Panel(instructions, border_style="cyan", box=box.ROUNDED))
+    console.print("\n[bold green]Done![/]\n")
