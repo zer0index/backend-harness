@@ -15,6 +15,16 @@ from client import create_client
 from progress import print_session_header, print_progress_summary
 from prompts import get_initializer_prompt, get_coding_prompt, copy_spec_to_project, copy_templates_to_project
 
+# Import git_commit function (will be available after autonomous_agent_demo loads)
+# We use a late import to avoid circular dependency
+def _git_commit(project_dir, message):
+    """Wrapper for git_commit to handle import."""
+    try:
+        from autonomous_agent_demo import git_commit
+        return git_commit(project_dir, message)
+    except ImportError:
+        return False
+
 
 # Configuration
 AUTO_CONTINUE_DELAY_SECONDS = 3
@@ -107,6 +117,7 @@ async def run_autonomous_agent(
     model: str,
     max_iterations: Optional[int] = None,
     config_name: str = 'medium',
+    git_enabled: bool = True,
 ) -> None:
     """
     Run the autonomous agent loop.
@@ -116,6 +127,7 @@ async def run_autonomous_agent(
         model: Claude model to use
         max_iterations: Maximum number of iterations (None for unlimited)
         config_name: Configuration size (small, medium, large)
+        git_enabled: Whether to commit changes after each iteration
     """
     print("\n" + "=" * 70)
     print("  AUTONOMOUS CODING AGENT DEMO")
@@ -183,6 +195,10 @@ async def run_autonomous_agent(
 
         # Handle status
         if status == "continue":
+            # Commit changes after each iteration
+            if git_enabled:
+                _git_commit(project_dir, f"Iteration {iteration}: agent progress")
+
             # Check if project is complete (all tests passing)
             from progress import count_passing_tests
 
@@ -197,6 +213,11 @@ async def run_autonomous_agent(
                 print(f"✅ All tests passing ({passing}/{total})")
                 print("\nProject is production-ready!")
                 print_progress_summary(project_dir)
+                
+                # Final commit
+                if git_enabled:
+                    _git_commit(project_dir, f"Project complete: all {total} tests passing")
+                
                 print("\n" + "-" * 70)
                 print("  To continue working on this project:")
                 print("-" * 70)

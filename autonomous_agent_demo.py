@@ -15,6 +15,7 @@ Example Usage:
 import argparse
 import asyncio
 import os
+import subprocess
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -24,6 +25,135 @@ from agent import run_autonomous_agent
 
 # Configuration
 DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+
+
+# =============================================================================
+# Git Helper Functions
+# =============================================================================
+
+def init_git_repo(project_dir: Path) -> bool:
+    """Initialize a git repository in the project directory."""
+    try:
+        # Check if already a git repo
+        git_dir = project_dir / ".git"
+        if git_dir.exists():
+            print(f"ℹ️  Git repository already exists in {project_dir}")
+            return True
+
+        subprocess.run(
+            ["git", "init"],
+            cwd=project_dir,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+
+        # Configure git user for this repo (in case global config is missing)
+        subprocess.run(
+            ["git", "config", "user.email", "agent@backend-harness.local"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Backend Harness Agent"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True
+        )
+
+        print(f"✅ Initialized git repository in {project_dir}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"⚠️  Failed to initialize git repo: {e.stderr}")
+        return False
+    except FileNotFoundError:
+        print("⚠️  Git not found. Skipping repository initialization.")
+        return False
+
+
+def git_commit(project_dir: Path, message: str) -> bool:
+    """Stage all changes and create a commit."""
+    try:
+        # Stage all changes
+        subprocess.run(
+            ["git", "add", "-A"],
+            cwd=project_dir,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+
+        # Check if there are changes to commit
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True
+        )
+
+        if not result.stdout.strip():
+            print("ℹ️  No changes to commit")
+            return False
+
+        # Commit
+        subprocess.run(
+            ["git", "commit", "-m", message],
+            cwd=project_dir,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(f"✅ Committed: {message}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"⚠️  Git commit failed: {e.stderr}")
+        return False
+
+
+def create_gitignore(project_dir: Path) -> None:
+    """Create a .gitignore file for the project."""
+    gitignore_content = """# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Database
+*.db
+*.sqlite3
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Logs
+*.log
+logs/
+
+# Node (if any frontend)
+node_modules/
+"""
+    gitignore_path = project_dir / ".gitignore"
+    if not gitignore_path.exists():
+        gitignore_path.write_text(gitignore_content)
+        print("✅ Created .gitignore")
 
 
 def parse_args() -> argparse.Namespace:
@@ -83,6 +213,12 @@ Configuration:
         help="App size configuration (test=5-10 tests for pipeline validation, small=20-30 tests, medium=100-200 tests, large=300-500 tests). Default: medium",
     )
 
+    parser.add_argument(
+        "--no-git",
+        action="store_true",
+        help="Skip git repository initialization and commits",
+    )
+
     return parser.parse_args()
 
 
@@ -113,6 +249,14 @@ def main() -> None:
             # Prepend generations/ to relative paths
             project_dir = Path("generations") / project_dir
 
+    # Initialize git repository (unless --no-git flag is set)
+    git_enabled = not args.no_git
+    if git_enabled:
+        project_dir.mkdir(parents=True, exist_ok=True)
+        if init_git_repo(project_dir):
+            create_gitignore(project_dir)
+            git_commit(project_dir, "Initial commit: project setup")
+
     # Run the agent
     try:
         asyncio.run(
@@ -121,6 +265,7 @@ def main() -> None:
                 model=args.model,
                 max_iterations=args.max_iterations,
                 config_name=args.config,
+                git_enabled=git_enabled,
             )
         )
     except KeyboardInterrupt:
