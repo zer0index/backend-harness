@@ -335,7 +335,7 @@ class AgentConsole:
             layout = Layout()
             layout.split_column(
                 Layout(name="breadcrumb", size=3),
-                Layout(name="status", size=18),  # Fixed size for 2-column layout to prevent flickering
+                Layout(name="status", size=20),  # Increased for Session + Total tokens/cost display
                 Layout(name="activity", size=8),  # Increased to prevent cutoff
             )
             
@@ -415,27 +415,38 @@ class AgentConsole:
             left_grid.add_row("✓ Success:", f"[green]{success_count}[/]")
             left_grid.add_row("✗ Errors:", f"[red]{error_count}[/]" if error_count > 0 else "[dim]0[/]")
             
-            # Always show token usage and cost (even if 0) to maintain fixed layout
-            total_tokens = self.session_input_tokens + self.session_output_tokens
-            
-            # Claude Sonnet 4.5 pricing (as of Dec 2024): $3/MTok input, $15/MTok output
-            input_cost = (self.session_input_tokens / 1_000_000) * 3.0
-            output_cost = (self.session_output_tokens / 1_000_000) * 15.0
-            total_cost = input_cost + output_cost
-            
+            # Token usage and cost - show both Session and Total (Option 1)
             # Format tokens (K for thousands)
             def format_tokens(n):
                 if n >= 1000:
                     return f"{n/1000:.1f}K"
                 return str(n)
             
-            if total_tokens > 0:
-                left_grid.add_row("📊 Tokens:", f"[cyan]{format_tokens(total_tokens)}[/] [dim]({format_tokens(self.session_input_tokens)}↑ {format_tokens(self.session_output_tokens)}↓)[/]")
-                left_grid.add_row("💰 Cost:", f"[yellow]${total_cost:.4f}[/]")
+            # Session tokens
+            session_tokens = self.session_input_tokens + self.session_output_tokens
+            session_input_cost = (self.session_input_tokens / 1_000_000) * 3.0
+            session_output_cost = (self.session_output_tokens / 1_000_000) * 15.0
+            session_cost = session_input_cost + session_output_cost
+            
+            # Total tokens (accumulated across all sessions)
+            total_tokens = self.total_input_tokens + self.total_output_tokens
+            total_input_cost = (self.total_input_tokens / 1_000_000) * 3.0
+            total_output_cost = (self.total_output_tokens / 1_000_000) * 15.0
+            total_cost = total_input_cost + total_output_cost
+            
+            # Display both Session and Total
+            if session_tokens > 0 or total_tokens > 0:
+                # Session line
+                left_grid.add_row("📊 Tokens:", f"[cyan]{format_tokens(session_tokens)}[/] [dim]({format_tokens(self.session_input_tokens)}↑ {format_tokens(self.session_output_tokens)}↓)[/] [yellow][Session][/]")
+                # Total line (indented slightly)
+                left_grid.add_row("", f"[cyan]{format_tokens(total_tokens)}[/] [dim]({format_tokens(self.total_input_tokens)}↑ {format_tokens(self.total_output_tokens)}↓)[/] [dim][Total][/]")
+                # Cost line with both values
+                left_grid.add_row("💰 Cost:", f"[yellow]${session_cost:.4f}[/] [dim]Session[/] | [yellow]${total_cost:.4f}[/] [dim]Total[/]")
             else:
-                # Show 0 values to maintain fixed height
-                left_grid.add_row("📊 Tokens:", f"[dim]0 (0↑ 0↓)[/]")
-                left_grid.add_row("💰 Cost:", f"[dim]$0.0000[/]")
+                # Show 0 values to maintain fixed height (3 rows for tokens+cost)
+                left_grid.add_row("📊 Tokens:", f"[dim]0 (0↑ 0↓)[/] [dim][Session][/]")
+                left_grid.add_row("", f"[dim]0 (0↑ 0↓)[/] [dim][Total][/]")
+                left_grid.add_row("💰 Cost:", f"[dim]$0.0000 Session | $0.0000 Total[/]")
             
             # RIGHT SIDE: Tool breakdown
             right_grid = Table.grid(padding=(0, 1))
