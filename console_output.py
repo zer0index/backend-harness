@@ -43,12 +43,13 @@ class ToolBatch:
         self.completed = 0
         self.total = 0
         
-    def add_tool(self, name: str, status: str = "pending", output: Optional[str] = None):
+    def add_tool(self, name: str, status: str = "pending", output: Optional[str] = None, details: Optional[str] = None):
         """Add a tool to the batch."""
         self.tools.append({
             "name": name,
             "status": status,
             "output": output,
+            "details": details,  # Store additional details like file path, command, etc.
             "timestamp": time.time()
         })
         self.total += 1
@@ -116,6 +117,9 @@ class AgentConsole:
         
         # File tracking: {filename: operation}
         self.session_files: Dict[str, str] = {}  # Track files worked on
+        
+        # Current tool details for display
+        self.current_tool_details: Optional[str] = None
         
     def set_verbosity(self, level: str):
         """Set verbosity level: quiet, normal, or verbose."""
@@ -587,15 +591,45 @@ class AgentConsole:
                     if last_tool["status"] == "pending":
                         # Use animated spinner character
                         progress_text.append(f"{spinner_char} ", style="bold cyan")
-                        progress_text.append(f"{last_tool['name']}...", style="bold cyan")
+                        progress_text.append(f"{last_tool['name']}", style="bold cyan")
+                        
+                        # Show details if available
+                        if last_tool.get("details"):
+                            details = last_tool["details"]
+                            # Truncate long details
+                            if len(details) > 50:
+                                details = details[:47] + "..."
+                            progress_text.append(f"\n   ", style="dim")
+                            progress_text.append(f"{details}", style="cyan dim")
+                        else:
+                            progress_text.append("...", style="bold cyan")
+                        
                         activity_content = progress_text
                     elif last_tool["status"] == "success":
                         progress_text.append("✓ ", style="green")
                         progress_text.append(f"{last_tool['name']}", style="dim green")
+                        
+                        # Show details if available
+                        if last_tool.get("details"):
+                            details = last_tool["details"]
+                            if len(details) > 50:
+                                details = details[:47] + "..."
+                            progress_text.append(f"\n   ", style="dim")
+                            progress_text.append(f"{details}", style="green dim")
+                        
                         activity_content = progress_text
                     elif last_tool["status"] == "error":
                         progress_text.append("✗ ", style="red")
                         progress_text.append(f"{last_tool['name']}", style="dim red")
+                        
+                        # Show details if available
+                        if last_tool.get("details"):
+                            details = last_tool["details"]
+                            if len(details) > 50:
+                                details = details[:47] + "..."
+                            progress_text.append(f"\n   ", style="dim")
+                            progress_text.append(f"{details}", style="red dim")
+                        
                         activity_content = progress_text
                 else:
                     activity_content = progress_text
@@ -653,8 +687,21 @@ class AgentConsole:
                     )
                     console.print(error_panel)
 
-    def update_tool_call(self, tool_name: str, status: str = "running", output: Optional[str] = None):
-        """Update tool call status."""
+    def update_tool_call(self, tool_name: str, status: str = "running", output: Optional[str] = None, details: Optional[str] = None):
+        """Update tool call status.
+        
+        Args:
+            tool_name: Name of the tool (e.g., "Read", "Write", "Bash")
+            status: Status of the tool call ("running", "success", "error")
+            output: Output from the tool
+            details: Additional details to display (e.g., file path, command)
+        """
+        # Store current tool details for dashboard display
+        if status == "running" and details:
+            self.current_tool_details = details
+        elif status in ["success", "error"]:
+            self.current_tool_details = None
+        
         # Extract filename and operation from tool_name (e.g. "read_file: app/main.py")
         if ":" in tool_name and status == "running":
             parts = tool_name.split(":", 1)
@@ -697,7 +744,7 @@ class AgentConsole:
         # Add to current batch
         if self.current_batch:
             if status == "running":
-                self.current_batch.add_tool(tool_name, "pending")
+                self.current_batch.add_tool(tool_name, "pending", details=details)
             else:
                 self.current_batch.mark_complete(status == "success", output)
         

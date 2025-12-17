@@ -111,6 +111,25 @@ async def run_agent_session(
                             
                         current_tool_name = block.name
                         
+                        # Extract tool details for display
+                        tool_details = None
+                        if hasattr(block, "input") and block.input:
+                            input_data = block.input
+                            
+                            # Extract meaningful details based on tool type
+                            if block.name in ["Read", "Write", "Edit", "Glob", "Grep"]:
+                                # File operations - show the path
+                                if "path" in input_data:
+                                    tool_details = str(input_data["path"])
+                                elif "pattern" in input_data:
+                                    tool_details = str(input_data["pattern"])
+                            elif block.name == "Bash":
+                                # Bash commands - show the command
+                                if "command" in input_data:
+                                    cmd = str(input_data["command"])
+                                    # Truncate very long commands
+                                    tool_details = cmd if len(cmd) <= 60 else cmd[:57] + "..."
+                        
                         # In verbose mode, show tool details
                         if agent_console.verbosity == "verbose":
                             console.print(f"\n[bold cyan]🔧 Tool:[/] [yellow]{block.name}[/]")
@@ -121,7 +140,7 @@ async def run_agent_session(
                                 else:
                                     console.print(f"   [dim]Input: {input_str}[/]")
                         
-                        agent_console.update_tool_call(block.name, "running")
+                        agent_console.update_tool_call(block.name, "running", details=tool_details)
 
             # Handle UserMessage (tool results)
             elif msg_type == "UserMessage" and hasattr(msg, "content"):
