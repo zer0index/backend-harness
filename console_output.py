@@ -104,6 +104,13 @@ class AgentConsole:
         self.session_iteration = 0
         self.session_max_iterations: Optional[int] = None
         self.project_dir: Optional[Any] = None  # Track for test progress
+        self._update_dashboard = None  # Function to update live dashboard
+        
+        # Token tracking
+        self.session_input_tokens = 0
+        self.session_output_tokens = 0
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
         
     def set_verbosity(self, level: str):
         """Set verbosity level: quiet, normal, or verbose."""
@@ -169,6 +176,10 @@ class AgentConsole:
         self.agent_thinking.append(text)
         self.session_thinking.append(text)
         
+        # Update dashboard if active
+        if self.live_dashboard_active and hasattr(self, '_update_dashboard') and self._update_dashboard:
+            self._update_dashboard()
+        
         # In verbose mode or when no dashboard, show thinking
         if self.verbosity == "verbose" and not self.live_dashboard_active:
             # End any active tool batch before showing thinking
@@ -179,6 +190,17 @@ class AgentConsole:
             console.print(f"[italic dim]💭 {text}[/]")
             console.print()
         # Otherwise it's shown in the live dashboard
+    
+    def add_tokens(self, input_tokens: int, output_tokens: int):
+        """Track token usage."""
+        self.session_input_tokens += input_tokens
+        self.session_output_tokens += output_tokens
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += output_tokens
+        
+        # Update dashboard if active
+        if self.live_dashboard_active and hasattr(self, '_update_dashboard') and self._update_dashboard:
+            self._update_dashboard()
         
     def print_banner(self, model: str, project_dir: str, config: str):
         """Print animated startup banner."""
@@ -303,6 +325,8 @@ class AgentConsole:
         self.session_errors: List[str] = []
         self.session_thinking: List[str] = []
         self.project_dir = project_dir
+        self.session_input_tokens = 0
+        self.session_output_tokens = 0
         
         def make_dashboard() -> Layout:
             # Create layout with multiple sections
@@ -313,8 +337,13 @@ class AgentConsole:
                 Layout(name="activity", size=6),
             )
             
-            # Breadcrumbs with test progress
-            breadcrumb_parts = []
+            # Breadcrumbs with test progress - simplified, no future sessions
+            
+            # Build session text
+            if max_iterations:
+                session_text = f"[bold cyan]▶ Session {iteration}[/] [dim](max: {max_iterations})[/]"
+            else:
+                session_text = f"[bold cyan]▶ Session {iteration}[/]"
             
             # Get test progress if project_dir available
             test_info = ""
@@ -324,21 +353,11 @@ class AgentConsole:
                     passing, total = count_passing_tests(self.project_dir)
                     if total > 0:
                         percentage = int((passing / total) * 100)
-                        test_info = f" [dim]│[/] Tests: [cyan]{passing}[/]/[dim]{total}[/] [yellow]({percentage}%)[/]"
+                        test_info = f"  [dim]│[/]  Tests: [cyan]{passing}[/]/[dim]{total}[/] [yellow]({percentage}%)[/]"
                 except:
                     pass
             
-            if max_iterations:
-                for i in range(1, max_iterations + 1):
-                    if i < iteration:
-                        breadcrumb_parts.append(f"[dim green]✓ {i}[/]")
-                    elif i == iteration:
-                        breadcrumb_parts.append(f"[bold cyan]▶ Session {i}[/]")
-                    else:
-                        breadcrumb_parts.append(f"[dim]○ {i}[/]")
-                breadcrumb_text = "  ".join(breadcrumb_parts) + test_info
-            else:
-                breadcrumb_text = f"[bold cyan]▶ Session {iteration}[/] [dim]→ ∞[/]" + test_info
+            breadcrumb_text = session_text + test_info
             
             layout["breadcrumb"].update(Panel(
                 Align.center(Text.from_markup(breadcrumb_text)),
@@ -369,6 +388,25 @@ class AgentConsole:
                 "✓ Success:", f"[green]{success_count}[/]",
                 "✗ Errors:", f"[red]{error_count}[/]" if error_count > 0 else "[dim]0[/]"
             )
+            
+            # Add token usage and cost
+            total_tokens = self.session_input_tokens + self.session_output_tokens
+            if total_tokens > 0:
+                # Claude Sonnet 4.5 pricing (as of Dec 2024): $3/MTok input, $15/MTok output
+                input_cost = (self.session_input_tokens / 1_000_000) * 3.0
+                output_cost = (self.session_output_tokens / 1_000_000) * 15.0
+                total_cost = input_cost + output_cost
+                
+                # Format tokens (K for thousands)
+                def format_tokens(n):
+                    if n >= 1000:
+                        return f"{n/1000:.1f}K"
+                    return str(n)
+                
+                status_grid.add_row(
+                    "📊 Tokens:", f"[cyan]{format_tokens(total_tokens)}[/] [dim]({format_tokens(self.session_input_tokens)}↑ {format_tokens(self.session_output_tokens)}↓)[/]",
+                    "💰 Cost:", f"[yellow]${total_cost:.4f}[/]"
+                )
             
             # Add test progress bar if available
             if self.project_dir:
@@ -446,11 +484,20 @@ class AgentConsole:
         # Always show live dashboard (except in quiet mode)
         with Live(make_dashboard(), console=console, refresh_per_second=4, transient=False) as live:
             self.current_live_dashboard = live
+            
+            # Store the make_dashboard function so we can update it
+            def update_dashboard():
+                if self.current_live_dashboard:
+                    self.current_live_dashboard.update(make_dashboard())
+            
+            self._update_dashboard = update_dashboard
+            
             try:
                 yield live
             finally:
                 self.current_live_dashboard = None
                 self.live_dashboard_active = False
+                self._update_dashboard = None
                 
                 # Show errors if any
                 if self.session_errors:
@@ -486,6 +533,10 @@ class AgentConsole:
                 self.current_batch.add_tool(tool_name, "pending")
             else:
                 self.current_batch.mark_complete(status == "success", output)
+        
+        # Update dashboard if active
+        if self.live_dashboard_active and hasattr(self, '_update_dashboard') and self._update_dashboard:
+            self._update_dashboard()
         
         # Only show individual tools in verbose mode when no dashboard
         if self.verbosity == "verbose" and not self.live_dashboard_active:

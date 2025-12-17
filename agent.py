@@ -52,9 +52,8 @@ async def run_agent_session(
         - "continue" if agent should continue working
         - "error" if an error occurred
     """
-    if agent_console.verbosity != "quiet":
-        console.print("[dim]Sending prompt to Claude Agent SDK...[/]\n")
-
+    # Dashboard will show activity - no need for extra messages
+    
     try:
         # Send the query
         await client.query(message)
@@ -66,6 +65,14 @@ async def run_agent_session(
         
         async for msg in client.receive_response():
             msg_type = type(msg).__name__
+            
+            # Try to extract usage from message if available
+            if hasattr(msg, 'usage'):
+                usage = msg.usage
+                input_tokens = getattr(usage, 'input_tokens', 0)
+                output_tokens = getattr(usage, 'output_tokens', 0)
+                if input_tokens > 0 or output_tokens > 0:
+                    agent_console.add_tokens(input_tokens, output_tokens)
 
             # Handle AssistantMessage (text and tool use)
             if msg_type == "AssistantMessage" and hasattr(msg, "content"):
@@ -165,6 +172,18 @@ async def run_agent_session(
         # End any remaining tool batch
         if agent_console.current_batch:
             agent_console.end_tool_batch()
+        
+        # Token usage is tracked during message loop (each msg may have usage)
+        # If we still want to check for final usage on client:
+        if hasattr(client, 'usage'):
+            try:
+                usage = client.usage
+                input_tokens = getattr(usage, 'input_tokens', 0)
+                output_tokens = getattr(usage, 'output_tokens', 0)
+                if input_tokens > 0 or output_tokens > 0:
+                    agent_console.add_tokens(input_tokens, output_tokens)
+            except:
+                pass  # Token tracking is optional
             
         console.print()
         return "continue", response_text
