@@ -117,6 +117,15 @@ For testing with limited iterations:
 python autonomous_agent_demo.py --project-dir ./my_task_api --max-iterations 3
 ```
 
+### Development/Pipeline Testing
+
+For rapid pipeline validation during development (minimal token usage):
+```bash
+python autonomous_agent_demo.py --project-dir ./test_run --config test --max-iterations 2
+```
+
+This uses a minimal Notes API spec with only 3-5 endpoints and 5-10 tests, completing in 1-3 minutes.
+
 ## Important Timing Expectations
 
 > **Warning: This demo takes a long time to run!**

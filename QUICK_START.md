@@ -83,6 +83,18 @@ generations/test_todo/
 
 Choose the right config for your needs:
 
+### Test (Pipeline Validation)
+```bash
+--config test
+```
+- **Test cases:** 5-10
+- **Endpoints:** 3-5
+- **Mock users:** 2
+- **Mock main entity:** 3
+- **Duration:** 1-2 sessions (~1-3 minutes)
+- **Best for:** Development testing, pipeline validation, minimal token usage
+- **Uses:** Minimal Notes API spec (`app_spec_test.txt`)
+
 ### Small (Quick Testing)
 ```bash
 --config small
@@ -119,6 +131,12 @@ Choose the right config for your needs:
 ---
 
 ## Example Usage Scenarios
+
+### Scenario 0: Development/Pipeline Testing (Fastest)
+```bash
+# Minimal test to validate the pipeline works (uses built-in minimal Notes API spec)
+python autonomous_agent_demo.py --project-dir ./dev_test --config test --max-iterations 2
+```
 
 ### Scenario 1: Test Handoff Docs Quickly
 ```bash
