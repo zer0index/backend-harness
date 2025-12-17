@@ -98,6 +98,8 @@ class AgentConsole:
         self.current_batch: Optional[ToolBatch] = None
         self.agent_thinking: List[str] = []
         self.live_dashboard_active = False
+        self.spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]  # dots spinner
+        self.spinner_index = 0
         self.current_live_dashboard: Optional[Live] = None
         self.session_start_time = time.time()
         self.session_errors: List[str] = []
@@ -333,17 +335,37 @@ class AgentConsole:
             layout = Layout()
             layout.split_column(
                 Layout(name="breadcrumb", size=3),
-                Layout(name="status", size=10),  # Increased for tool breakdown
-                Layout(name="activity", size=6),
+                Layout(name="status", size=18),  # Fixed size for 2-column layout to prevent flickering
+                Layout(name="activity", size=8),  # Increased to prevent cutoff
             )
             
-            # Breadcrumbs with test progress - simplified, no future sessions
+            # Breadcrumbs - Option A: "Initialization" then "Session 1, 2, 3..."
+            # Initializer = iteration 1 with no tests
+            # Coding Sessions = iteration 2+ (displayed as Session 1, 2, 3...)
             
-            # Build session text
-            if max_iterations:
-                session_text = f"[bold cyan]▶ Session {iteration}[/] [dim](max: {max_iterations})[/]"
+            # Check if this is initializer (iteration 1 with no tests)
+            is_initializer = False
+            if self.project_dir and iteration == 1:
+                try:
+                    from progress import count_passing_tests
+                    passing, total = count_passing_tests(self.project_dir)
+                    is_initializer = (total == 0)
+                except:
+                    is_initializer = True  # Assume initializer if can't read tests
+            
+            if is_initializer:
+                # Initializer phase - not counted as a session
+                session_text = f"[bold yellow]▶ Initialization[/]"
             else:
-                session_text = f"[bold cyan]▶ Session {iteration}[/]"
+                # Coding sessions - start counting from 1
+                # iteration 2 = Session 1, iteration 3 = Session 2, etc.
+                session_num = iteration - 1
+                if max_iterations and max_iterations > 1:
+                    # max_iterations includes initializer, so coding sessions = max - 1
+                    coding_sessions = max_iterations - 1
+                    session_text = f"[bold cyan]▶ Session {session_num}[/] [dim](max: {coding_sessions})[/]"
+                else:
+                    session_text = f"[bold cyan]▶ Session {session_num}[/]"
             
             # Get test progress if project_dir available
             test_info = ""
@@ -355,9 +377,9 @@ class AgentConsole:
                         # Coding agent - show test progress
                         percentage = int((passing / total) * 100)
                         test_info = f"  [dim]│[/]  Tests: [cyan]{passing}[/]/[dim]{total}[/] [yellow]({percentage}%)[/]"
-                    elif iteration == 1:
-                        # Initializer agent - no tests yet
-                        test_info = f"  [dim]│[/]  [yellow]Generating test suite...[/]"
+                    elif is_initializer:
+                        # Initializer agent - generating tests
+                        test_info = f"  [dim]│[/]  [yellow]Creating test suite & project structure...[/]"
                 except:
                     pass
             
@@ -393,22 +415,27 @@ class AgentConsole:
             left_grid.add_row("✓ Success:", f"[green]{success_count}[/]")
             left_grid.add_row("✗ Errors:", f"[red]{error_count}[/]" if error_count > 0 else "[dim]0[/]")
             
-            # Add token usage and cost
+            # Always show token usage and cost (even if 0) to maintain fixed layout
             total_tokens = self.session_input_tokens + self.session_output_tokens
+            
+            # Claude Sonnet 4.5 pricing (as of Dec 2024): $3/MTok input, $15/MTok output
+            input_cost = (self.session_input_tokens / 1_000_000) * 3.0
+            output_cost = (self.session_output_tokens / 1_000_000) * 15.0
+            total_cost = input_cost + output_cost
+            
+            # Format tokens (K for thousands)
+            def format_tokens(n):
+                if n >= 1000:
+                    return f"{n/1000:.1f}K"
+                return str(n)
+            
             if total_tokens > 0:
-                # Claude Sonnet 4.5 pricing (as of Dec 2024): $3/MTok input, $15/MTok output
-                input_cost = (self.session_input_tokens / 1_000_000) * 3.0
-                output_cost = (self.session_output_tokens / 1_000_000) * 15.0
-                total_cost = input_cost + output_cost
-                
-                # Format tokens (K for thousands)
-                def format_tokens(n):
-                    if n >= 1000:
-                        return f"{n/1000:.1f}K"
-                    return str(n)
-                
                 left_grid.add_row("📊 Tokens:", f"[cyan]{format_tokens(total_tokens)}[/] [dim]({format_tokens(self.session_input_tokens)}↑ {format_tokens(self.session_output_tokens)}↓)[/]")
                 left_grid.add_row("💰 Cost:", f"[yellow]${total_cost:.4f}[/]")
+            else:
+                # Show 0 values to maintain fixed height
+                left_grid.add_row("📊 Tokens:", f"[dim]0 (0↑ 0↓)[/]")
+                left_grid.add_row("💰 Cost:", f"[dim]$0.0000[/]")
             
             # RIGHT SIDE: Tool breakdown
             right_grid = Table.grid(padding=(0, 1))
@@ -440,31 +467,36 @@ class AgentConsole:
                 elif "glob" in tool_name.lower():
                     tool_categories["📁 Glob"] += count
             
-            # Only show categories that have been used
+            # Always show all categories (even with 0) to maintain fixed height
             right_grid.add_row("", "[dim]Tool Activity:[/]")
             for category, count in tool_categories.items():
                 if count > 0:
                     right_grid.add_row(category, f"{count}×")
+                else:
+                    right_grid.add_row(category, f"[dim]0×[/]")
             
-            # Show files worked on (last 6 files)
-            if self.session_files:
-                right_grid.add_row("", "")  # Spacer
-                right_grid.add_row("", "[dim]Files:[/]")
-                # Show last 6 files to avoid overflow
-                file_items = list(self.session_files.items())
-                display_files = file_items[-6:]
-                
-                # Icons for operations
-                operation_icons = {
-                    "read": "📖",
-                    "write": "✏️ ",
-                    "edit": "🔧",
-                    "grep": "🔍",
-                    "glob": "📁",
-                    "other": "•"
-                }
-                
-                for filename, operation in display_files:
+            # Always show Files section with 6 fixed slots to prevent height changes
+            right_grid.add_row("", "")  # Spacer
+            right_grid.add_row("", "[dim]Files:[/]")
+            
+            # Icons for operations
+            operation_icons = {
+                "read": "📖",
+                "write": "✏️ ",
+                "edit": "🔧",
+                "grep": "🔍",
+                "glob": "📁",
+                "other": "•"
+            }
+            
+            # Get last 6 files
+            file_items = list(self.session_files.items())
+            display_files = file_items[-6:] if len(file_items) > 6 else file_items
+            
+            # Always show 6 slots (pad with placeholders if fewer files)
+            for i in range(6):
+                if i < len(display_files):
+                    filename, operation = display_files[i]
                     # Shorten long paths
                     display_name = filename
                     if len(display_name) > 22:
@@ -472,10 +504,9 @@ class AgentConsole:
                     
                     icon = operation_icons.get(operation, "•")
                     right_grid.add_row("", f"{icon} [dim cyan]{display_name}[/]")
-            
-            # If no tools yet, show waiting message
-            if tools_completed == 0:
-                right_grid.add_row("", "[dim]No tools yet[/]")
+                else:
+                    # Empty slot placeholder
+                    right_grid.add_row("", "[dim]...[/]")
             
             # Combine left and right grids
             status_layout.add_row(left_grid, right_grid)
@@ -519,6 +550,10 @@ class AgentConsole:
             # Activity panel
             activity_text = Text()
             
+            # Update spinner animation frame
+            self.spinner_index = (self.spinner_index + 1) % len(self.spinner_frames)
+            spinner_char = self.spinner_frames[self.spinner_index]
+            
             # Show current batch status
             activity_content = None
             if self.current_batch and self.current_batch.tools:
@@ -539,10 +574,10 @@ class AgentConsole:
                 if batch.tools:
                     last_tool = batch.tools[-1]
                     if last_tool["status"] == "pending":
-                        # Use animated spinner for running tools
-                        spinner = Spinner("dots", style="cyan")
-                        tool_text = Text(f" {last_tool['name']}...", style="bold cyan")
-                        activity_content = Group(progress_text, Group(spinner, tool_text))
+                        # Use animated spinner character
+                        progress_text.append(f"{spinner_char} ", style="bold cyan")
+                        progress_text.append(f"{last_tool['name']}...", style="bold cyan")
+                        activity_content = progress_text
                     elif last_tool["status"] == "success":
                         progress_text.append("✓ ", style="green")
                         progress_text.append(f"{last_tool['name']}", style="dim green")
@@ -555,17 +590,18 @@ class AgentConsole:
                     activity_content = progress_text
             else:
                 # Show last thinking or processing
+                activity_text = Text()
                 if self.session_thinking:
                     last_thought = self.session_thinking[-1]
                     if len(last_thought) > 60:
                         last_thought = last_thought[:57] + "..."
-                    thinking_spinner = Spinner("dots", style="magenta")
-                    thinking_text = Text(f" {last_thought}", style="italic dim")
-                    activity_content = Group(thinking_spinner, thinking_text)
+                    activity_text.append(f"{spinner_char} ", style="bold magenta")
+                    activity_text.append(f"{last_thought}", style="italic dim")
+                    activity_content = activity_text
                 else:
-                    processing_spinner = Spinner("dots", style="dim")
-                    processing_text = Text(" Processing...", style="dim")
-                    activity_content = Group(processing_spinner, processing_text)
+                    activity_text.append(f"{spinner_char} ", style="bold dim")
+                    activity_text.append("Processing...", style="dim")
+                    activity_content = activity_text
             
             layout["activity"].update(Panel(
                 activity_content,
@@ -585,7 +621,8 @@ class AgentConsole:
         
         # Always show live dashboard (except in quiet mode)
         # refresh_per_second=4 ensures dashboard updates continuously (time keeps running)
-        with Live(dashboard, console=console, refresh_per_second=4, transient=False) as live:
+        # screen=True enables proper terminal control for in-place updates
+        with Live(dashboard, console=console, refresh_per_second=4, screen=True) as live:
             self.current_live_dashboard = live
             
             try:
