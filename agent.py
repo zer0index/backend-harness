@@ -69,23 +69,19 @@ async def run_agent_session(
             # Try to extract usage from message if available
             if hasattr(msg, 'usage'):
                 usage = msg.usage
-                input_tokens = getattr(usage, 'input_tokens', 0)
-                output_tokens = getattr(usage, 'output_tokens', 0)
+                
+                # Usage can be either an object with attributes or a dict
+                if isinstance(usage, dict):
+                    # Dict format (common with Azure Foundry)
+                    input_tokens = usage.get('input_tokens', 0) or usage.get('prompt_tokens', 0)
+                    output_tokens = usage.get('output_tokens', 0) or usage.get('completion_tokens', 0)
+                else:
+                    # Object format (direct Anthropic API)
+                    input_tokens = getattr(usage, 'input_tokens', 0)
+                    output_tokens = getattr(usage, 'output_tokens', 0)
+                
                 if input_tokens > 0 or output_tokens > 0:
                     agent_console.add_tokens(input_tokens, output_tokens)
-            
-            # DEBUG: Check if Azure Foundry returns usage differently
-            # Azure Foundry might use 'usage' at a different level or with different field names
-            if hasattr(msg, '__dict__'):
-                msg_dict = msg.__dict__
-                # Check for common Azure usage field names
-                if 'usage' in msg_dict and msg_dict['usage']:
-                    usage_data = msg_dict['usage']
-                    if isinstance(usage_data, dict):
-                        input_tok = usage_data.get('prompt_tokens', 0) or usage_data.get('input_tokens', 0)
-                        output_tok = usage_data.get('completion_tokens', 0) or usage_data.get('output_tokens', 0)
-                        if input_tok > 0 or output_tok > 0:
-                            agent_console.add_tokens(input_tok, output_tok)
 
             # Handle AssistantMessage (text and tool use)
             if msg_type == "AssistantMessage" and hasattr(msg, "content"):
