@@ -83,8 +83,16 @@ async def run_agent_session(
                             error_str = str(result_content)[:500]
                             print(f"   [Error] {error_str}", flush=True)
                         else:
-                            # Tool succeeded - just show brief confirmation
-                            print("   [Done]", flush=True)
+                            # Tool succeeded - show output if there is any
+                            output = str(result_content).strip()
+                            if output and len(output) > 0:
+                                # Show first 300 chars of output for debugging
+                                if len(output) > 300:
+                                    print(f"   [Done] {output[:300]}...", flush=True)
+                                else:
+                                    print(f"   [Done] {output}", flush=True)
+                            else:
+                                print("   [Done]", flush=True)
 
         print("\n" + "-" * 70 + "\n")
         return "continue", response_text
