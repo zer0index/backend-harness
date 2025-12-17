@@ -73,6 +73,19 @@ async def run_agent_session(
                 output_tokens = getattr(usage, 'output_tokens', 0)
                 if input_tokens > 0 or output_tokens > 0:
                     agent_console.add_tokens(input_tokens, output_tokens)
+            
+            # DEBUG: Check if Azure Foundry returns usage differently
+            # Azure Foundry might use 'usage' at a different level or with different field names
+            if hasattr(msg, '__dict__'):
+                msg_dict = msg.__dict__
+                # Check for common Azure usage field names
+                if 'usage' in msg_dict and msg_dict['usage']:
+                    usage_data = msg_dict['usage']
+                    if isinstance(usage_data, dict):
+                        input_tok = usage_data.get('prompt_tokens', 0) or usage_data.get('input_tokens', 0)
+                        output_tok = usage_data.get('completion_tokens', 0) or usage_data.get('output_tokens', 0)
+                        if input_tok > 0 or output_tok > 0:
+                            agent_console.add_tokens(input_tok, output_tok)
 
             # Handle AssistantMessage (text and tool use)
             if msg_type == "AssistantMessage" and hasattr(msg, "content"):
@@ -116,19 +129,38 @@ async def run_agent_session(
                         if hasattr(block, "input") and block.input:
                             input_data = block.input
                             
+                            # Convert to dict if it's an object
+                            if not isinstance(input_data, dict) and hasattr(input_data, '__dict__'):
+                                input_data = input_data.__dict__
+                            
                             # Extract meaningful details based on tool type
                             if block.name in ["Read", "Write", "Edit", "Glob", "Grep"]:
                                 # File operations - show the path
-                                if "path" in input_data:
-                                    tool_details = str(input_data["path"])
-                                elif "pattern" in input_data:
-                                    tool_details = str(input_data["pattern"])
+                                if isinstance(input_data, dict):
+                                    if "path" in input_data:
+                                        tool_details = str(input_data["path"])
+                                    elif "pattern" in input_data:
+                                        tool_details = str(input_data["pattern"])
+                                    elif "file" in input_data:
+                                        tool_details = str(input_data["file"])
+                                    elif "filePath" in input_data:
+                                        tool_details = str(input_data["filePath"])
+                                else:
+                                    # Fallback: try to extract path from string representation
+                                    input_str = str(input_data)
+                                    if len(input_str) > 10 and len(input_str) < 200:
+                                        tool_details = input_str[:60]
                             elif block.name == "Bash":
                                 # Bash commands - show the command
-                                if "command" in input_data:
+                                if isinstance(input_data, dict) and "command" in input_data:
                                     cmd = str(input_data["command"])
                                     # Truncate very long commands
                                     tool_details = cmd if len(cmd) <= 60 else cmd[:57] + "..."
+                                else:
+                                    # Fallback for command in string format
+                                    input_str = str(input_data)
+                                    if len(input_str) > 0:
+                                        tool_details = input_str[:60] if len(input_str) <= 60 else input_str[:57] + "..."
                         
                         # In verbose mode, show tool details
                         if agent_console.verbosity == "verbose":
