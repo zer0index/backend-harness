@@ -213,22 +213,74 @@ grep -A 5 "React" docs/mock-data/README.md
 
 ## Running the Generated Backend
 
-To test the generated API:
+To test the generated API, follow these two steps:
+
+### Step 1: Setup Environment
+
+Run the init script to set up the development environment:
 
 ```bash
 cd generations/test_todo
 
-# Run the init script (sets up everything)
+# On Windows PowerShell:
+./init.ps1
+
+# OR on Unix/Linux/macOS/Git Bash:
 ./init.sh
+```
 
-# Or manually:
-docker compose up -d postgres
-pip install -r requirements.txt
-alembic upgrade head
+The init script will:
+- Create a Python virtual environment (`.venv`)
+- Install all dependencies from `requirements.txt`
+- Start PostgreSQL database (if Docker is available)
+- Run database migrations (if Alembic is configured)
+- Run test suite to verify everything works
+
+**Note:** For SQLite projects, Docker and Alembic steps are optional - the app auto-creates the schema on startup.
+
+### Step 2: Start the Server
+
+After running the init script, manually start the FastAPI server:
+
+```bash
+# Activate virtual environment (if not already activated)
+# On Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+
+# OR on Unix/Linux/macOS/Git Bash:
+source .venv/bin/activate
+
+# Start the server
 uvicorn app.main:app --reload --port 8000
+```
 
-# Access the API
-open http://localhost:8000/docs  # Swagger UI
+**Important:** The init scripts only set up the environment - they do NOT start the server. You must manually run `uvicorn` as shown above.
+
+### Accessing the API
+
+Once the server is running:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI JSON**: http://localhost:8000/openapi.json
+
+### Alternative: Manual Setup
+
+If you prefer not to use the init script:
+
+```bash
+cd generations/test_todo
+
+# 1. Start PostgreSQL (optional for SQLite)
+docker compose up -d postgres
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Run migrations (optional for SQLite)
+python -m alembic upgrade head
+
+# 4. Start server
+uvicorn app.main:app --reload --port 8000
 ```
 
 ---

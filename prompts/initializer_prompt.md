@@ -224,13 +224,16 @@ project/
 8. **alembic.ini** - Database migration configuration
 9. **.env.example** - Template for environment variables
 
-### THIRD TASK: Create init.sh
+### THIRD TASK: Create init.sh and init.ps1 (Setup Scripts)
 
-Create a script called `init.sh` that sets up the complete development environment:
+Create TWO setup scripts for cross-platform compatibility:
+- `init.sh` for Unix/Linux/macOS/Git Bash users
+- `init.ps1` for Windows PowerShell users
+
+**init.sh** (Bash version):
 
 ```bash
 #!/bin/bash
-set -e
 
 echo "=== Backend Development Environment Setup ==="
 echo ""
@@ -255,17 +258,26 @@ echo "Installing Python dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# Start PostgreSQL with Docker
+# Start PostgreSQL with Docker (optional - skip if using SQLite)
 echo "Starting PostgreSQL database..."
-docker compose up -d postgres
+if command -v docker &> /dev/null; then
+    if docker compose up -d postgres 2>/dev/null; then
+        echo "  ✓ Docker database started"
+        sleep 5
+    else
+        echo "  → Skipping Docker (using SQLite or already running)"
+    fi
+else
+    echo "  → Docker not found - skipping (project may use SQLite)"
+fi
 
-# Wait for database to be ready
-echo "Waiting for database to be ready..."
-sleep 5
-
-# Run database migrations
+# Run database migrations (optional - skip if app auto-creates schema)
 echo "Running database migrations..."
-alembic upgrade head
+if python -m alembic upgrade head 2>/dev/null; then
+    echo "  ✓ Migrations applied successfully"
+else
+    echo "  → Skipping migrations (app may auto-create schema on startup)"
+fi
 
 # Run tests to verify setup
 echo "Running tests..."
@@ -289,6 +301,81 @@ echo ""
 ```
 
 Make the script executable: `chmod +x init.sh`
+
+**init.ps1** (PowerShell version for Windows users):
+```powershell
+# init.ps1 - PowerShell setup script for Windows
+Write-Host "=== Backend Development Environment Setup ===" -ForegroundColor Cyan
+Write-Host ""
+
+# Check for Python
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    Write-Host "Error: Python 3 is required but not installed" -ForegroundColor Red
+    exit 1
+}
+
+# Create virtual environment if it doesn't exist
+if (-not (Test-Path "venv")) {
+    Write-Host "Creating virtual environment..." -ForegroundColor Yellow
+    python -m venv venv
+}
+
+# Activate virtual environment
+Write-Host "Activating virtual environment..." -ForegroundColor Yellow
+& .\venv\Scripts\Activate.ps1
+
+# Install dependencies
+Write-Host "Installing Python dependencies..." -ForegroundColor Yellow
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+# Start PostgreSQL with Docker (optional - skip if using SQLite)
+Write-Host "Starting PostgreSQL database..." -ForegroundColor Yellow
+if (Get-Command docker -ErrorAction SilentlyContinue) {
+    try {
+        docker compose up -d postgres 2>$null
+        Write-Host "  Docker database started" -ForegroundColor Green
+        Start-Sleep -Seconds 5
+    } catch {
+        Write-Host "  Skipping Docker (using SQLite or already running)" -ForegroundColor Gray
+    }
+} else {
+    Write-Host "  Docker not found - skipping (project may use SQLite)" -ForegroundColor Gray
+}
+
+# Run database migrations (optional - skip if app auto-creates schema)
+Write-Host "Running database migrations..." -ForegroundColor Yellow
+try {
+    python -m alembic upgrade head 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  Migrations applied successfully" -ForegroundColor Green
+    } else {
+        Write-Host "  Skipping migrations (app may auto-create schema on startup)" -ForegroundColor Gray
+    }
+} catch {
+    Write-Host "  Alembic not configured - skipping (app may auto-create schema on startup)" -ForegroundColor Gray
+}
+
+# Run tests to verify setup
+Write-Host "Running tests..." -ForegroundColor Yellow
+pytest -v
+
+Write-Host ""
+Write-Host "=== Setup Complete ===" -ForegroundColor Green
+Write-Host ""
+Write-Host "To start the development server:"
+Write-Host "  uvicorn app.main:app --reload --port 8000"
+Write-Host ""
+Write-Host "API will be available at:"
+Write-Host "  http://localhost:8000"
+Write-Host "  http://localhost:8000/docs (Swagger UI)"
+Write-Host "  http://localhost:8000/redoc (ReDoc)"
+Write-Host ""
+Write-Host "To run tests:"
+Write-Host "  pytest -v"
+Write-Host "  pytest --cov=app --cov-report=term-missing"
+Write-Host ""
+```
 
 ### FOURTH TASK: Create Dependencies Configuration
 

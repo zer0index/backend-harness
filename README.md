@@ -249,7 +249,8 @@ my_task_api/
 ├── .env.example             # Environment variables template
 ├── feature_list.json        # 100-200 test specifications (source of truth)
 ├── app_spec.txt             # Copied specification
-├── init.sh                  # Environment setup script
+├── init.sh                  # Environment setup script (Bash)
+├── init.ps1                 # Environment setup script (PowerShell)
 ├── claude-progress.txt      # Session progress notes
 ├── .claude_settings.json    # Security settings
 └── README.md
@@ -257,35 +258,78 @@ my_task_api/
 
 ## Running the Generated Application
 
-After the agent completes (or pauses), you can run the generated application:
+After the agent completes (or pauses), you can run the generated application in two steps:
+
+### Step 1: Setup Environment
+
+Run the init script to set up your development environment (creates virtual environment, installs dependencies, starts database, runs migrations):
+
+**On Windows (PowerShell):**
+```bash
+cd generations/my_task_api
+./init.ps1
+```
+
+**On Unix/Linux/macOS/Git Bash:**
+```bash
+cd generations/my_task_api
+./init.sh
+```
+
+The init script will:
+- Create a Python virtual environment (`.venv`)
+- Install all dependencies from `requirements.txt`
+- Start PostgreSQL database (if Docker is available)
+- Run database migrations (if Alembic is configured)
+- Run test suite to verify everything works
+
+**Note:** For SQLite projects, Docker and Alembic steps are optional - the application will auto-create the database schema on first startup.
+
+### Step 2: Start the Server
+
+After running the init script, manually start the FastAPI development server:
+
+```bash
+# Activate virtual environment (if not already activated)
+# On Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+
+# On Unix/Linux/macOS/Git Bash:
+source .venv/bin/activate
+
+# Start the server
+uvicorn app.main:app --reload --port 8000
+```
+
+**Important:** The init scripts only set up the environment - they do NOT start the server. You must manually run `uvicorn` as shown above to start the API.
+
+### Alternative: Manual Setup
+
+If you prefer not to use the init script:
 
 ```bash
 cd generations/my_task_api
 
-# Run the setup script created by the agent
-./init.sh
-
-# Or manually:
-# 1. Start PostgreSQL
+# 1. Start PostgreSQL (optional for SQLite projects)
 docker compose up -d postgres
 
 # 2. Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Run database migrations
-alembic upgrade head
+# 3. Run database migrations (optional for SQLite projects)
+python -m alembic upgrade head
 
 # 4. Start FastAPI server
 uvicorn app.main:app --reload --port 8000
 
-# 5. Run tests
+# 5. Run tests (optional)
 pytest -v
 pytest --cov=app --cov-report=term-missing
 ```
 
 ### Accessing the API
 
-Once running, the API will be available at:
+Once the server is running, the API will be available at:
 - **API Base**: http://localhost:8000
 - **Swagger UI** (interactive docs): http://localhost:8000/docs
 - **ReDoc** (alternative docs): http://localhost:8000/redoc
@@ -350,6 +394,9 @@ The generated project's dependencies need to be installed. Run `pip install -r r
 
 **"PostgreSQL connection failed"**
 Ensure Docker is running and PostgreSQL is started: `docker compose up -d postgres`
+
+**"Can't access http://localhost:8000/docs after running init script"**
+The init scripts only set up the environment - they don't start the server. After running `init.sh` or `init.ps1`, you must manually start the server with: `uvicorn app.main:app --reload --port 8000`
 
 ## Technology Stack (Generated Projects)
 
