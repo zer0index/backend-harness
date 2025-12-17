@@ -1,0 +1,23 @@
+{
+  "app_size": "test",
+  "description": "Minimal test configuration for quick pipeline validation runs",
+
+  "test_spec": {
+    "min_tests": 5,
+    "max_tests": 10,
+    "min_endpoints": 3,
+    "max_endpoints": 5,
+    "tests_per_endpoint": "1-2"
+  },
+
+  "mock_data": {
+    "users": 2,
+    "main_entity": 3,
+    "secondary_entities": 2
+  },
+
+  "session_expectations": {
+    "initializer_duration": "1-3 minutes",
+    "total_sessions": "1-2 sessions"
+  }
+}

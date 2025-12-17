@@ -79,8 +79,8 @@ Configuration:
         "--config",
         type=str,
         default="medium",
-        choices=["small", "medium", "large"],
-        help="App size configuration (small=20-30 tests, medium=100-200 tests, large=300-500 tests). Default: medium",
+        choices=["small", "medium", "large", "test"],
+        help="App size configuration (test=5-10 tests for pipeline validation, small=20-30 tests, medium=100-200 tests, large=300-500 tests). Default: medium",
     )
 
     return parser.parse_args()

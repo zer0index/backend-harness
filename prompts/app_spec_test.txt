@@ -1,0 +1,272 @@
+================================================================================
+NOTES API - MINIMAL TEST SPECIFICATION
+================================================================================
+
+OVERVIEW
+--------
+A minimal Notes API for pipeline validation testing. This is a stripped-down
+specification designed to test the full development workflow with minimal
+token usage.
+
+PROJECT GOALS
+- Validate the autonomous agent pipeline end-to-end
+- Test all workflow stages with minimal complexity
+- Fast iteration during development
+
+TECHNOLOGY STACK
+- FastAPI (Python 3.11+)
+- SQLite (in-memory for simplicity)
+- SQLAlchemy 2.0 (async)
+- pytest + pytest-asyncio
+
+================================================================================
+AUTHENTICATION (MOCK)
+================================================================================
+
+Use simple mock authentication via X-User-ID header.
+- If header present: authenticated as that user
+- If header missing: return 401 Unauthorized
+
+================================================================================
+RESOURCES
+================================================================================
+
+1. USERS (mock - no CRUD endpoints needed)
+------------------------------------------
+Fields:
+- id: integer, primary key
+- username: string, unique, max 50 chars
+
+Pre-seed 2 users in database for testing:
+- User 1: id=1, username="alice"
+- User 2: id=2, username="bob"
+
+
+2. NOTES
+--------
+Fields:
+- id: integer, primary key, auto-increment
+- title: string, required, max 100 chars
+- content: text, optional
+- user_id: integer, foreign key to users
+- created_at: datetime, auto-set on create
+
+Business Rules:
+- Users can only see/modify their own notes
+- Title is required and cannot be empty
+- Content is optional (can be null or empty string)
+
+================================================================================
+API ENDPOINTS (5 total)
+================================================================================
+
+1. GET /health
+--------------
+Health check endpoint (no auth required)
+
+Response 200:
+{
+  "status": "healthy",
+  "timestamp": "2024-01-01T00:00:00Z"
+}
+
+
+2. GET /notes
+-------------
+List all notes for the authenticated user
+
+Headers: X-User-ID (required)
+
+Query Parameters:
+- limit: integer, default 10, max 50
+- offset: integer, default 0
+
+Response 200:
+{
+  "items": [
+    {
+      "id": 1,
+      "title": "My Note",
+      "content": "Note content",
+      "user_id": 1,
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "limit": 10,
+  "offset": 0
+}
+
+Response 401 (no X-User-ID header):
+{
+  "error": "unauthorized",
+  "message": "X-User-ID header required"
+}
+
+
+3. POST /notes
+--------------
+Create a new note
+
+Headers: X-User-ID (required)
+
+Request Body:
+{
+  "title": "My Note",      // required, max 100 chars
+  "content": "Content"     // optional
+}
+
+Response 201:
+{
+  "id": 1,
+  "title": "My Note",
+  "content": "Content",
+  "user_id": 1,
+  "created_at": "2024-01-01T00:00:00Z"
+}
+
+Response 400 (validation error):
+{
+  "error": "validation_error",
+  "message": "Title is required"
+}
+
+Response 401 (no auth):
+{
+  "error": "unauthorized",
+  "message": "X-User-ID header required"
+}
+
+
+4. GET /notes/{id}
+------------------
+Get a specific note by ID
+
+Headers: X-User-ID (required)
+
+Response 200:
+{
+  "id": 1,
+  "title": "My Note",
+  "content": "Content",
+  "user_id": 1,
+  "created_at": "2024-01-01T00:00:00Z"
+}
+
+Response 401 (no auth):
+{
+  "error": "unauthorized",
+  "message": "X-User-ID header required"
+}
+
+Response 403 (not owner):
+{
+  "error": "forbidden",
+  "message": "You don't have access to this note"
+}
+
+Response 404 (not found):
+{
+  "error": "not_found",
+  "message": "Note not found"
+}
+
+
+5. DELETE /notes/{id}
+---------------------
+Delete a note
+
+Headers: X-User-ID (required)
+
+Response 204: No content
+
+Response 401 (no auth):
+{
+  "error": "unauthorized",
+  "message": "X-User-ID header required"
+}
+
+Response 403 (not owner):
+{
+  "error": "forbidden",
+  "message": "You don't have access to this note"
+}
+
+Response 404 (not found):
+{
+  "error": "not_found",
+  "message": "Note not found"
+}
+
+================================================================================
+DATABASE SCHEMA
+================================================================================
+
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title VARCHAR(100) NOT NULL,
+    content TEXT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_notes_user_id ON notes(user_id);
+
+-- Seed data
+INSERT INTO users (id, username) VALUES (1, 'alice'), (2, 'bob');
+
+================================================================================
+TESTING REQUIREMENTS
+================================================================================
+
+Minimum 5-10 tests covering:
+
+1. Health check returns 200
+2. List notes requires auth (401 without header)
+3. Create note with valid data (201)
+4. Create note without title fails (400)
+5. Get note returns correct data
+6. Get note for wrong user returns 403
+7. Delete note works for owner
+8. Delete note for wrong user returns 403
+
+Test Structure:
+- Use pytest with pytest-asyncio
+- Use httpx AsyncClient for API testing
+- Tests should be independent (fresh DB per test)
+
+================================================================================
+PROJECT STRUCTURE
+================================================================================
+
+/
+├── app/
+│   ├── __init__.py
+│   ├── main.py           # FastAPI app, routes
+│   ├── models.py         # SQLAlchemy models
+│   ├── schemas.py        # Pydantic schemas
+│   ├── database.py       # DB connection
+│   └── auth.py           # Mock auth dependency
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py       # Fixtures
+│   └── test_notes.py     # API tests
+├── requirements.txt
+└── README.md
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+1. All 5 endpoints implemented and working
+2. All tests passing (5-10 tests)
+3. Proper error handling with consistent JSON responses
+4. Mock auth working correctly
+5. SQLite database with proper schema
+
+================================================================================

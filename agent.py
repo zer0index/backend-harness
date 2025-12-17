@@ -145,7 +145,7 @@ async def run_autonomous_agent(
         print("=" * 70)
         print()
         # Copy the app spec into the project directory for the agent to read
-        copy_spec_to_project(project_dir)
+        copy_spec_to_project(project_dir, config_name)
         # Copy template files so the agent can use them
         copy_templates_to_project(project_dir)
     else:

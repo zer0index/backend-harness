@@ -103,13 +103,23 @@ def get_coding_prompt(config_name: str = 'medium') -> str:
     return apply_config_to_prompt(prompt, config)
 
 
-def copy_spec_to_project(project_dir: Path) -> None:
-    """Copy the app spec file into the project directory for the agent to read."""
-    spec_source = PROMPTS_DIR / "app_spec.txt"
+def copy_spec_to_project(project_dir: Path, config_name: str = 'medium') -> None:
+    """Copy the app spec file into the project directory for the agent to read.
+    
+    Args:
+        project_dir: Target project directory
+        config_name: Configuration name - uses app_spec_test.txt for 'test' config
+    """
+    # Use minimal spec for test config, full spec otherwise
+    if config_name == 'test':
+        spec_source = PROMPTS_DIR / "app_spec_test.txt"
+    else:
+        spec_source = PROMPTS_DIR / "app_spec.txt"
+    
     spec_dest = project_dir / "app_spec.txt"
     if not spec_dest.exists():
         shutil.copy(spec_source, spec_dest)
-        print("Copied app_spec.txt to project directory")
+        print(f"Copied {spec_source.name} to project directory as app_spec.txt")
 
 
 def copy_templates_to_project(project_dir: Path) -> None:
