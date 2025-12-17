@@ -67,7 +67,7 @@ async def run_agent_session(
             msg_type = type(msg).__name__
             
             # Try to extract usage from message if available
-            if hasattr(msg, 'usage'):
+            if hasattr(msg, 'usage') and msg.usage:
                 usage = msg.usage
                 
                 # Usage can be either an object with attributes or a dict
@@ -82,6 +82,9 @@ async def run_agent_session(
                 
                 if input_tokens > 0 or output_tokens > 0:
                     agent_console.add_tokens(input_tokens, output_tokens)
+                    # Debug: show token tracking is working
+                    if agent_console.verbosity == "verbose":
+                        console.print(f"[dim]📊 Tokens: +{input_tokens}↑ +{output_tokens}↓[/]")
 
             # Handle AssistantMessage (text and tool use)
             if msg_type == "AssistantMessage" and hasattr(msg, "content"):
