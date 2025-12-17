@@ -73,8 +73,14 @@ def init_git_repo(project_dir: Path) -> bool:
         return False
 
 
-def git_commit(project_dir: Path, message: str) -> bool:
-    """Stage all changes and create a commit."""
+def git_commit(project_dir: Path, message: str, body: str = None) -> bool:
+    """Stage all changes and create a commit with optional detailed body.
+    
+    Args:
+        project_dir: Project directory path
+        message: Commit subject line (first line)
+        body: Optional detailed commit body with bullet points
+    """
     try:
         # Stage all changes
         subprocess.run(
@@ -97,14 +103,21 @@ def git_commit(project_dir: Path, message: str) -> bool:
             print_step("No changes to commit", "info")
             return False
 
+        # Build full commit message
+        if body:
+            full_message = f"{message}\n\n{body}"
+        else:
+            full_message = message
+
         # Commit
         subprocess.run(
-            ["git", "commit", "-m", message],
+            ["git", "commit", "-m", full_message],
             cwd=project_dir,
             check=True,
             capture_output=True,
             text=True
         )
+        # Show only first line in success message
         print_step(f"Committed: {message}", "success")
         return True
     except subprocess.CalledProcessError as e:
@@ -265,7 +278,14 @@ def main() -> None:
             
             if init_git_repo(project_dir):
                 create_gitignore(project_dir)
-                git_commit(project_dir, "Initial commit: project setup")
+                git_commit(
+                    project_dir, 
+                    "Initial commit: project setup",
+                    """- Created project directory structure
+- Initialized git repository
+- Added .gitignore for Python projects
+- Ready for autonomous agent development"""
+                )
 
     # Run the agent
     try:
