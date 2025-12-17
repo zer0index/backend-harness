@@ -20,6 +20,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TaskID,
 )
+from rich.spinner import Spinner
 from rich.table import Table
 from rich.live import Live
 from rich.layout import Layout
@@ -104,13 +105,15 @@ class AgentConsole:
         self.session_iteration = 0
         self.session_max_iterations: Optional[int] = None
         self.project_dir: Optional[Any] = None  # Track for test progress
-        self._update_dashboard = None  # Function to update live dashboard
         
         # Token tracking
         self.session_input_tokens = 0
         self.session_output_tokens = 0
         self.total_input_tokens = 0
         self.total_output_tokens = 0
+        
+        # File tracking: {filename: operation}
+        self.session_files: Dict[str, str] = {}  # Track files worked on
         
     def set_verbosity(self, level: str):
         """Set verbosity level: quiet, normal, or verbose."""
@@ -176,9 +179,7 @@ class AgentConsole:
         self.agent_thinking.append(text)
         self.session_thinking.append(text)
         
-        # Update dashboard if active
-        if self.live_dashboard_active and hasattr(self, '_update_dashboard') and self._update_dashboard:
-            self._update_dashboard()
+        # Dashboard auto-refreshes, no manual update needed
         
         # In verbose mode or when no dashboard, show thinking
         if self.verbosity == "verbose" and not self.live_dashboard_active:
@@ -198,9 +199,7 @@ class AgentConsole:
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
         
-        # Update dashboard if active
-        if self.live_dashboard_active and hasattr(self, '_update_dashboard') and self._update_dashboard:
-            self._update_dashboard()
+        # Dashboard auto-refreshes, no manual update needed
         
     def print_banner(self, model: str, project_dir: str, config: str):
         """Print animated startup banner."""
@@ -327,13 +326,14 @@ class AgentConsole:
         self.project_dir = project_dir
         self.session_input_tokens = 0
         self.session_output_tokens = 0
+        self.session_files = {}
         
         def make_dashboard() -> Layout:
             # Create layout with multiple sections
             layout = Layout()
             layout.split_column(
                 Layout(name="breadcrumb", size=3),
-                Layout(name="status", size=8),
+                Layout(name="status", size=10),  # Increased for tool breakdown
                 Layout(name="activity", size=6),
             )
             
@@ -352,8 +352,12 @@ class AgentConsole:
                     from progress import count_passing_tests
                     passing, total = count_passing_tests(self.project_dir)
                     if total > 0:
+                        # Coding agent - show test progress
                         percentage = int((passing / total) * 100)
                         test_info = f"  [dim]│[/]  Tests: [cyan]{passing}[/]/[dim]{total}[/] [yellow]({percentage}%)[/]"
+                    elif iteration == 1:
+                        # Initializer agent - no tests yet
+                        test_info = f"  [dim]│[/]  [yellow]Generating test suite...[/]"
                 except:
                     pass
             
@@ -365,29 +369,29 @@ class AgentConsole:
                 box=box.SIMPLE
             ))
             
-            # Status panel
+            # Status panel - use 3 columns layout
             elapsed = time.time() - self.session_start_time
             elapsed_str = f"{int(elapsed // 60):02d}:{int(elapsed % 60):02d}"
             
-            status_grid = Table.grid(padding=(0, 2))
-            status_grid.add_column(style="dim", justify="right")
-            status_grid.add_column(style="bold")
-            status_grid.add_column(style="dim", justify="right")
-            status_grid.add_column(style="bold")
+            # Create main layout with left stats and right tool breakdown
+            status_layout = Table.grid(expand=True)
+            status_layout.add_column(ratio=1)  # Left side
+            status_layout.add_column(ratio=1)  # Right side
+            
+            # LEFT SIDE: Main stats
+            left_grid = Table.grid(padding=(0, 2))
+            left_grid.add_column(style="dim", justify="right")
+            left_grid.add_column(style="bold")
             
             # Calculate stats
             tools_completed = self.tools_called
             success_count = sum(stats.get("success", 0) for stats in self.tool_stats.values())
             error_count = sum(stats.get("error", 0) for stats in self.tool_stats.values())
             
-            status_grid.add_row(
-                "⏱ Time:", f"[yellow]{elapsed_str}[/]",
-                "🔧 Tools:", f"[cyan]{tools_completed}[/]"
-            )
-            status_grid.add_row(
-                "✓ Success:", f"[green]{success_count}[/]",
-                "✗ Errors:", f"[red]{error_count}[/]" if error_count > 0 else "[dim]0[/]"
-            )
+            left_grid.add_row("⏱ Time:", f"[yellow]{elapsed_str}[/]")
+            left_grid.add_row("🔧 Tools:", f"[cyan]{tools_completed}[/]")
+            left_grid.add_row("✓ Success:", f"[green]{success_count}[/]")
+            left_grid.add_row("✗ Errors:", f"[red]{error_count}[/]" if error_count > 0 else "[dim]0[/]")
             
             # Add token usage and cost
             total_tokens = self.session_input_tokens + self.session_output_tokens
@@ -403,30 +407,110 @@ class AgentConsole:
                         return f"{n/1000:.1f}K"
                     return str(n)
                 
-                status_grid.add_row(
-                    "📊 Tokens:", f"[cyan]{format_tokens(total_tokens)}[/] [dim]({format_tokens(self.session_input_tokens)}↑ {format_tokens(self.session_output_tokens)}↓)[/]",
-                    "💰 Cost:", f"[yellow]${total_cost:.4f}[/]"
-                )
+                left_grid.add_row("📊 Tokens:", f"[cyan]{format_tokens(total_tokens)}[/] [dim]({format_tokens(self.session_input_tokens)}↑ {format_tokens(self.session_output_tokens)}↓)[/]")
+                left_grid.add_row("💰 Cost:", f"[yellow]${total_cost:.4f}[/]")
             
-            # Add test progress bar if available
+            # RIGHT SIDE: Tool breakdown
+            right_grid = Table.grid(padding=(0, 1))
+            right_grid.add_column(style="dim", justify="right", width=8)
+            right_grid.add_column(style="bold cyan")
+            
+            # Categorize tools by type
+            tool_categories = {
+                "📖 Read": 0,
+                "✏️  Write": 0,
+                "🔧 Edit": 0,
+                "🔍 Grep": 0,
+                "💻 Bash": 0,
+                "📁 Glob": 0,
+            }
+            
+            for tool_name, stats in self.tool_stats.items():
+                count = stats.get("count", 0)
+                if "read" in tool_name.lower() or tool_name.lower().startswith("read"):
+                    tool_categories["📖 Read"] += count
+                elif "write" in tool_name.lower() or tool_name.lower().startswith("write"):
+                    tool_categories["✏️  Write"] += count
+                elif "edit" in tool_name.lower() or tool_name.lower().startswith("edit"):
+                    tool_categories["🔧 Edit"] += count
+                elif "grep" in tool_name.lower():
+                    tool_categories["🔍 Grep"] += count
+                elif "bash" in tool_name.lower() or tool_name.lower().startswith("bash"):
+                    tool_categories["💻 Bash"] += count
+                elif "glob" in tool_name.lower():
+                    tool_categories["📁 Glob"] += count
+            
+            # Only show categories that have been used
+            right_grid.add_row("", "[dim]Tool Activity:[/]")
+            for category, count in tool_categories.items():
+                if count > 0:
+                    right_grid.add_row(category, f"{count}×")
+            
+            # Show files worked on (last 6 files)
+            if self.session_files:
+                right_grid.add_row("", "")  # Spacer
+                right_grid.add_row("", "[dim]Files:[/]")
+                # Show last 6 files to avoid overflow
+                file_items = list(self.session_files.items())
+                display_files = file_items[-6:]
+                
+                # Icons for operations
+                operation_icons = {
+                    "read": "📖",
+                    "write": "✏️ ",
+                    "edit": "🔧",
+                    "grep": "🔍",
+                    "glob": "📁",
+                    "other": "•"
+                }
+                
+                for filename, operation in display_files:
+                    # Shorten long paths
+                    display_name = filename
+                    if len(display_name) > 22:
+                        display_name = "..." + display_name[-19:]
+                    
+                    icon = operation_icons.get(operation, "•")
+                    right_grid.add_row("", f"{icon} [dim cyan]{display_name}[/]")
+            
+            # If no tools yet, show waiting message
+            if tools_completed == 0:
+                right_grid.add_row("", "[dim]No tools yet[/]")
+            
+            # Combine left and right grids
+            status_layout.add_row(left_grid, right_grid)
+            
+            # Add test progress bar as a full-width row below
+            test_row = Text()
             if self.project_dir:
                 try:
                     from progress import count_passing_tests
                     passing, total = count_passing_tests(self.project_dir)
                     if total > 0:
+                        # Coding agent - show progress bar
                         progress_pct = passing / total
-                        bar_width = 40
+                        bar_width = 60
                         filled = int(bar_width * progress_pct)
                         bar = "█" * filled + "░" * (bar_width - filled)
-                        status_grid.add_row(
-                            "", "",
-                            "📊 Tests:", f"[green]{bar}[/] [cyan]{passing}[/]/[dim]{total}[/]"
-                        )
+                        test_row.append("📊 Tests: ", style="dim")
+                        test_row.append(f"{bar} ", style="green")
+                        test_row.append(f"{passing}", style="cyan")
+                        test_row.append(f"/{total}", style="dim")
+                    elif iteration == 1:
+                        # Initializer agent - tests being created
+                        test_row.append("📝 Setup: ", style="dim")
+                        test_row.append("Creating test suite and project structure...", style="yellow")
                 except:
                     pass
             
+            # Add test row if we have content
+            if test_row.plain:
+                combined = Group(status_layout, Text(""), test_row)
+            else:
+                combined = status_layout
+            
             layout["status"].update(Panel(
-                status_grid,
+                combined,
                 title="[bold]Status",
                 border_style="cyan",
                 box=box.ROUNDED
@@ -436,6 +520,7 @@ class AgentConsole:
             activity_text = Text()
             
             # Show current batch status
+            activity_content = None
             if self.current_batch and self.current_batch.tools:
                 batch = self.current_batch
                 completed = sum(1 for t in batch.tools if t["status"] != "pending")
@@ -446,34 +531,44 @@ class AgentConsole:
                 filled = int(bar_width * progress)
                 bar = "█" * filled + "░" * (bar_width - filled)
                 
-                activity_text.append(f"Tools: ", style="dim")
-                activity_text.append(f"{bar} {completed}/{batch.total}\n", style="cyan")
+                progress_text = Text()
+                progress_text.append(f"Tools: ", style="dim")
+                progress_text.append(f"{bar} {completed}/{batch.total}\n\n", style="cyan")
                 
-                # Current tool
+                # Current tool with animated spinner for running tools
                 if batch.tools:
                     last_tool = batch.tools[-1]
                     if last_tool["status"] == "pending":
-                        activity_text.append("\n🔄 ", style="cyan")
-                        activity_text.append(f"{last_tool['name']}...", style="bold cyan")
+                        # Use animated spinner for running tools
+                        spinner = Spinner("dots", style="cyan")
+                        tool_text = Text(f" {last_tool['name']}...", style="bold cyan")
+                        activity_content = Group(progress_text, Group(spinner, tool_text))
                     elif last_tool["status"] == "success":
-                        activity_text.append("\n✓ ", style="green")
-                        activity_text.append(f"{last_tool['name']}", style="dim green")
+                        progress_text.append("✓ ", style="green")
+                        progress_text.append(f"{last_tool['name']}", style="dim green")
+                        activity_content = progress_text
                     elif last_tool["status"] == "error":
-                        activity_text.append("\n✗ ", style="red")
-                        activity_text.append(f"{last_tool['name']}", style="dim red")
+                        progress_text.append("✗ ", style="red")
+                        progress_text.append(f"{last_tool['name']}", style="dim red")
+                        activity_content = progress_text
+                else:
+                    activity_content = progress_text
             else:
-                # Show last thinking
+                # Show last thinking or processing
                 if self.session_thinking:
                     last_thought = self.session_thinking[-1]
                     if len(last_thought) > 60:
                         last_thought = last_thought[:57] + "..."
-                    activity_text.append("💭 ", style="magenta")
-                    activity_text.append(last_thought, style="italic dim")
+                    thinking_spinner = Spinner("dots", style="magenta")
+                    thinking_text = Text(f" {last_thought}", style="italic dim")
+                    activity_content = Group(thinking_spinner, thinking_text)
                 else:
-                    activity_text.append("⏳ Processing...", style="dim")
+                    processing_spinner = Spinner("dots", style="dim")
+                    processing_text = Text(" Processing...", style="dim")
+                    activity_content = Group(processing_spinner, processing_text)
             
             layout["activity"].update(Panel(
-                activity_text,
+                activity_content,
                 title="[bold]Current Activity",
                 border_style="blue",
                 box=box.ROUNDED
@@ -481,23 +576,23 @@ class AgentConsole:
             
             return layout
         
+        # Create a renderable class that calls make_dashboard
+        class DashboardRenderable:
+            def __rich_console__(self, console, options):
+                yield make_dashboard()
+        
+        dashboard = DashboardRenderable()
+        
         # Always show live dashboard (except in quiet mode)
-        with Live(make_dashboard(), console=console, refresh_per_second=4, transient=False) as live:
+        # refresh_per_second=4 ensures dashboard updates continuously (time keeps running)
+        with Live(dashboard, console=console, refresh_per_second=4, transient=False) as live:
             self.current_live_dashboard = live
-            
-            # Store the make_dashboard function so we can update it
-            def update_dashboard():
-                if self.current_live_dashboard:
-                    self.current_live_dashboard.update(make_dashboard())
-            
-            self._update_dashboard = update_dashboard
             
             try:
                 yield live
             finally:
                 self.current_live_dashboard = None
                 self.live_dashboard_active = False
-                self._update_dashboard = None
                 
                 # Show errors if any
                 if self.session_errors:
@@ -512,6 +607,30 @@ class AgentConsole:
 
     def update_tool_call(self, tool_name: str, status: str = "running", output: Optional[str] = None):
         """Update tool call status."""
+        # Extract filename and operation from tool_name (e.g. "read_file: app/main.py")
+        if ":" in tool_name and status == "running":
+            parts = tool_name.split(":", 1)
+            if len(parts) == 2:
+                tool_type = parts[0].strip().lower()
+                filename = parts[1].strip()
+                # Only track actual files (not commands)
+                if "/" in filename or "\\" in filename or "." in filename:
+                    # Determine operation from tool type
+                    operation = "other"
+                    if "read" in tool_type:
+                        operation = "read"
+                    elif "write" in tool_type:
+                        operation = "write"
+                    elif "edit" in tool_type:
+                        operation = "edit"
+                    elif "grep" in tool_type:
+                        operation = "grep"
+                    elif "glob" in tool_type:
+                        operation = "glob"
+                    
+                    # Store with operation (will override if same file with different operation)
+                    self.session_files[filename] = operation
+        
         # Update stats
         if tool_name not in self.tool_stats:
             self.tool_stats[tool_name] = {"count": 0, "success": 0, "error": 0}
@@ -534,9 +653,7 @@ class AgentConsole:
             else:
                 self.current_batch.mark_complete(status == "success", output)
         
-        # Update dashboard if active
-        if self.live_dashboard_active and hasattr(self, '_update_dashboard') and self._update_dashboard:
-            self._update_dashboard()
+        # Dashboard auto-refreshes, no manual update needed
         
         # Only show individual tools in verbose mode when no dashboard
         if self.verbosity == "verbose" and not self.live_dashboard_active:
