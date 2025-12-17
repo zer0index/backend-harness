@@ -121,6 +121,9 @@ class AgentConsole:
         # Current tool details for display
         self.current_tool_details: Optional[str] = None
         
+        # Track if initialization phase has completed
+        self.initialization_completed = False
+        
     def set_verbosity(self, level: str):
         """Set verbosity level: quiet, normal, or verbose."""
         self.verbosity = level
@@ -348,22 +351,45 @@ class AgentConsole:
             # Coding Sessions = iteration 2+ (displayed as Session 1, 2, 3...)
             
             # Check if this is initializer (iteration 1 with no tests)
+            # Also check if initialization was already completed to handle resume cases
             is_initializer = False
-            if self.project_dir and iteration == 1:
+            test_count = 0
+            
+            if self.project_dir:
                 try:
                     from progress import count_passing_tests
                     passing, total = count_passing_tests(self.project_dir)
-                    is_initializer = (total == 0)
+                    test_count = total
+                    
+                    # Only treat as initializer if:
+                    # 1. We haven't marked initialization as complete yet
+                    # 2. Iteration is 1
+                    # 3. No tests exist yet (total == 0)
+                    if not self.initialization_completed and iteration == 1 and total == 0:
+                        is_initializer = True
                 except:
-                    is_initializer = True  # Assume initializer if can't read tests
+                    # If we can't read tests and it's iteration 1 and not completed, assume initializer
+                    if not self.initialization_completed and iteration == 1:
+                        is_initializer = True
+            
+            # Mark initialization as completed once we detect tests exist
+            if test_count > 0:
+                self.initialization_completed = True
             
             if is_initializer:
                 # Initializer phase - not counted as a session
                 session_text = f"[bold yellow]▶ Initialization[/]"
             else:
                 # Coding sessions - start counting from 1
-                # iteration 2 = Session 1, iteration 3 = Session 2, etc.
-                session_num = iteration - 1
+                # If resuming (iteration 1 but tests exist), show as Session 1
+                # Otherwise: iteration 2 = Session 1, iteration 3 = Session 2, etc.
+                if iteration == 1 and test_count > 0:
+                    # Resuming from iteration 1 but tests already exist
+                    session_num = 1
+                else:
+                    # Normal case: iteration 2+ becomes Session 1+
+                    session_num = iteration - 1
+                
                 if max_iterations and max_iterations > 1:
                     # max_iterations includes initializer, so coding sessions = max - 1
                     coding_sessions = max_iterations - 1
@@ -371,19 +397,18 @@ class AgentConsole:
                 else:
                     session_text = f"[bold cyan]▶ Session {session_num}[/]"
             
-            # Get test progress if project_dir available
+            # Get test progress - use the test_count we already retrieved
             test_info = ""
-            if self.project_dir:
+            if is_initializer:
+                # Initializer agent - generating tests
+                test_info = f"  [dim]│[/]  [yellow]Creating test suite & project structure...[/]"
+            elif test_count > 0:
+                # Coding agent - show test progress
                 try:
                     from progress import count_passing_tests
                     passing, total = count_passing_tests(self.project_dir)
-                    if total > 0:
-                        # Coding agent - show test progress
-                        percentage = int((passing / total) * 100)
-                        test_info = f"  [dim]│[/]  Tests: [cyan]{passing}[/]/[dim]{total}[/] [yellow]({percentage}%)[/]"
-                    elif is_initializer:
-                        # Initializer agent - generating tests
-                        test_info = f"  [dim]│[/]  [yellow]Creating test suite & project structure...[/]"
+                    percentage = int((passing / total) * 100)
+                    test_info = f"  [dim]│[/]  Tests: [cyan]{passing}[/]/[dim]{total}[/] [yellow]({percentage}%)[/]"
                 except:
                     pass
             
