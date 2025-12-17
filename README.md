@@ -352,7 +352,3 @@ Ensure Docker is running and PostgreSQL is started: `docker-compose up -d postgr
 - **Testing**: pytest + pytest-asyncio + httpx
 - **Validation**: Pydantic v2
 - **Documentation**: Auto-generated OpenAPI
-
-## License
-
-Internal Anthropic use.
