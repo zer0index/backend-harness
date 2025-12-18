@@ -50,13 +50,44 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
     # Check for Azure Foundry configuration first
     azure_api_key = os.environ.get("AZURE_FOUNDRY_API_KEY")
     azure_base_url = os.environ.get("AZURE_FOUNDRY_BASE_URL")
+    azure_model_name = os.environ.get("AZURE_FOUNDRY_MODEL_NAME")
     anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
-    
+
     # Determine which API configuration to use
     if azure_api_key and azure_base_url:
         api_key = azure_api_key
-        base_url = azure_base_url
-        print(f"Using Azure Foundry endpoint: {base_url}")
+
+        # Normalize base URL for Azure Foundry
+        # Should end with /anthropic (not /anthropic/v1/messages)
+        base_url = azure_base_url.rstrip('/')
+
+        # Remove /v1/messages or /anthropic/v1/messages if present
+        if '/v1/messages' in base_url:
+            if '/anthropic/v1/messages' in base_url:
+                base_url = base_url.split('/anthropic/v1/messages')[0] + '/anthropic'
+            elif '/v1/messages' in base_url:
+                base_url = base_url.split('/v1/messages')[0]
+
+        # Ensure it ends with /anthropic
+        if not base_url.endswith('/anthropic'):
+            base_url = f"{base_url}/anthropic"
+
+        # Use Azure Foundry deployment name if provided, otherwise use the passed model
+        # Azure uses deployment names like "claude-sonnet-4-5" instead of full model IDs
+        if azure_model_name:
+            model = azure_model_name
+            print(f"Using Azure Foundry endpoint: {base_url}")
+            print(f"Using Azure deployment: {model}")
+        else:
+            # If no deployment name specified, try to infer from the model parameter
+            # e.g., "claude-sonnet-4-5-20250929" -> "claude-sonnet-4-5"
+            if "claude-sonnet-4" in model.lower():
+                model = "claude-sonnet-4-5"
+                print(f"Using Azure Foundry endpoint: {base_url}")
+                print(f"Using inferred Azure deployment: {model} (set AZURE_FOUNDRY_MODEL_NAME to override)")
+            else:
+                print(f"Using Azure Foundry endpoint: {base_url}")
+                print(f"Using model: {model}")
     elif anthropic_api_key:
         api_key = anthropic_api_key
         base_url = None  # Use default Anthropic endpoint
@@ -67,7 +98,8 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
             "Option 1 - Direct Anthropic API:\n"
             "  Set ANTHROPIC_API_KEY (get from https://console.anthropic.com/)\n\n"
             "Option 2 - Azure Foundry:\n"
-            "  Set both AZURE_FOUNDRY_API_KEY and AZURE_FOUNDRY_BASE_URL\n\n"
+            "  Set AZURE_FOUNDRY_API_KEY, AZURE_FOUNDRY_BASE_URL\n"
+            "  Optionally: AZURE_FOUNDRY_MODEL_NAME (deployment name, e.g., 'claude-sonnet-4-5')\n\n"
             "Add these to a .env file or export as environment variables."
         )
 
