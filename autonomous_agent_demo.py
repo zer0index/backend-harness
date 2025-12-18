@@ -32,14 +32,18 @@ DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
 # Git Helper Functions
 # =============================================================================
 
-def init_git_repo(project_dir: Path) -> bool:
-    """Initialize a git repository in the project directory."""
+def init_git_repo(project_dir: Path) -> tuple[bool, bool]:
+    """Initialize a git repository in the project directory.
+
+    Returns:
+        (success: bool, newly_created: bool)
+    """
     try:
         # Check if already a git repo
         git_dir = project_dir / ".git"
         if git_dir.exists():
             print_step(f"Git repository already exists in {project_dir}", "info")
-            return True
+            return True, False  # Success, but not newly created
 
         subprocess.run(
             ["git", "init"],
@@ -64,13 +68,13 @@ def init_git_repo(project_dir: Path) -> bool:
         )
 
         print_step(f"Initialized git repository in {project_dir}", "success")
-        return True
+        return True, True  # Success, and newly created
     except subprocess.CalledProcessError as e:
         print_step(f"Failed to initialize git repo: {e.stderr}", "error")
-        return False
+        return False, False
     except FileNotFoundError:
         print_step("Git not found. Skipping repository initialization.", "warning")
-        return False
+        return False, False
 
 
 def git_commit(project_dir: Path, message: str, body: str = None) -> bool:
@@ -305,11 +309,13 @@ def main() -> None:
         with print_phase_start("Environment Setup"):
             project_dir.mkdir(parents=True, exist_ok=True)
             print_step("Project directory created", "success")
-            
-            if init_git_repo(project_dir):
+
+            success, newly_created = init_git_repo(project_dir)
+            if success and newly_created:
+                # Only create initial commit for newly created repos
                 create_gitignore(project_dir)
                 git_commit(
-                    project_dir, 
+                    project_dir,
                     "Initial commit: project setup",
                     """- Created project directory structure
 - Initialized git repository
