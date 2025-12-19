@@ -793,6 +793,182 @@ These files can be handed off to Figma Make or any frontend tool to build the UI
 
 ---
 
+#### 6.8: Create Figma Make Integration Templates
+
+**Purpose:** Provide Figma Make with both universal coding guidelines and a project-specific kickoff prompt to ensure perfect integration with your backend.
+
+**Step 1: Copy Universal Guideline Template**
+
+```bash
+# Create guidelines directory (Figma Make convention)
+mkdir -p guidelines
+
+# Copy the universal guideline template
+cp prompts/templates/FIGMA_MAKE_GUIDELINE_TEMPLATE.md guidelines/guideline.md
+```
+
+**What this provides:**
+- Universal coding standards for ANY project
+- Mock data development patterns (critical: Figma Make cannot access localhost)
+- Data model adherence rules (must match backend exactly)
+- TypeScript best practices
+- API error handling patterns
+- Testing, performance, and accessibility guidelines
+- Quality checklist
+
+**Step 2: Create Customized FIGMA_MAKE_PROMPT.md**
+
+Create `docs/FIGMA_MAKE_PROMPT.md` based on `prompts/templates/FIGMA_MAKE_PROMPT_TEMPLATE.md` but **customized with project-specific details**:
+
+**Required Customizations:**
+
+1. **Project Name:** Replace `[Project Name]` with the actual application name from `app_spec.txt`
+
+2. **Entity List:** In Phase 1.2, list the actual entities from your `feature_list.json`:
+   ```markdown
+   ### 1.2 Data Model Understanding
+
+   List all primary entities and their key relationships:
+   ```
+   User
+     ↓ has many
+   Tasks
+     ↓ has many
+   Comments
+     ↓ belongs to
+   Tags
+   ```
+   ```
+
+3. **Key Constraints:** In Phase 1.3, reference the actual constraints from your Pydantic schemas:
+   - Required fields from your models
+   - Enum values (e.g., TaskStatus: "todo" | "in_progress" | "done")
+   - Validation rules from FRONTEND_HANDOFF.md
+
+4. **Core Features:** In Phase 2.1, list the must-have features from APP_OVERVIEW.md:
+   ```markdown
+   Based on APP_OVERVIEW.md, the must-have features are:
+   - **P0 (Critical)**: [List from your APP_OVERVIEW.md]
+   - **P1 (Important)**: [List from your APP_OVERVIEW.md]
+   ```
+
+5. **Brainstorming Examples:** In Phase 2.2, provide examples using YOUR actual data fields:
+   ```markdown
+   "Using the existing task data (with created_at, status, user_id, priority fields), we could build:
+     - 📊 Activity dashboard showing tasks created per day (calculated in frontend)
+     - 📈 Progress charts by status distribution (aggregated client-side)
+     - 🎯 Priority matrix view (using priority and status fields)
+     - 📅 Calendar view of task deadlines (using due_date field)
+     - 🔥 Streak tracking for completed tasks (calculated from timestamps)"
+   ```
+
+**Template Structure to Maintain:**
+
+Keep all these sections from the template (DO NOT change):
+- Phase 1: Review & Understanding (framework only)
+- Phase 2: Brainstorming Frontend Features (framework + examples using YOUR data)
+- Phase 3: Architecture Planning (framework only)
+- Phase 4: Iterative Implementation Plan (framework only)
+- Development Guidelines (universal - no changes)
+- Quality Checklist (universal - no changes)
+- Collaboration Protocol (universal - no changes)
+
+**Example Customization:**
+
+```markdown
+# 🎨 Frontend Development Kickoff Prompt - Task Management App
+
+...
+
+## 📋 Phase 1: Review & Understanding
+
+### 1.2 Data Model Understanding
+
+List all primary entities and their key relationships:
+```
+User (id, email, name, role)
+  ↓ has many
+Tasks (id, title, description, status, priority, user_id, created_at, due_date)
+  ↓ has many
+Comments (id, content, task_id, user_id, created_at)
+  ↓ has many
+Tags (id, name, color)
+  ↓ many-to-many
+Tasks (via task_tags junction table)
+```
+
+### 1.3 Key Constraints
+
+From FRONTEND_HANDOFF.md:
+- TaskStatus enum: "todo" | "in_progress" | "done"
+- TaskPriority enum: "low" | "medium" | "high" | "urgent"
+- User.role enum: "user" | "admin"
+- Required fields: title, status (for tasks); email, name (for users)
+- Email validation: must be valid email format
+- Password: minimum 8 characters (when auth is implemented)
+
+...
+
+## 💡 Phase 2: Brainstorming Frontend Features
+
+### 2.1 Core Features Review
+
+Based on APP_OVERVIEW.md, the must-have features are:
+- **P0 (Critical)**:
+  - User authentication and profile management
+  - Create, view, update, delete tasks
+  - Task status management (todo → in_progress → done)
+  - Task assignment to users
+- **P1 (Important)**:
+  - Task filtering by status, priority, assignee
+  - Task search by title/description
+  - Comment threads on tasks
+  - Tag management and filtering
+- **P2 (Nice-to-have)**:
+  - Activity dashboard with metrics
+  - Bulk task operations
+  - Task templates
+  - Email notifications
+
+...
+```
+
+**Step 3: Commit Figma Make Templates**
+
+```bash
+git add guidelines/guideline.md docs/FIGMA_MAKE_PROMPT.md
+git status
+git commit -m "Add Figma Make integration templates
+
+- Added universal coding guideline (guidelines/guideline.md)
+  * Mock data development patterns (Figma Make cannot access localhost)
+  * Data model adherence rules
+  * TypeScript best practices
+  * API integration patterns
+  * Quality standards
+
+- Added customized project kickoff prompt (docs/FIGMA_MAKE_PROMPT.md)
+  * Project-specific entity list: User, Task, Comment, Tag
+  * Actual workflows from APP_OVERVIEW.md
+  * Data model constraints from schemas
+  * Brainstorming examples using real data fields
+  * Collaborative development protocol
+
+Ready for Figma Make frontend development!"
+```
+
+**Figma Make Integration Complete!**
+
+At this point, frontend developers can:
+1. ✅ Create new Figma Make project
+2. ✅ Copy `guidelines/guideline.md` to their Figma Make `guidelines/` folder
+3. ✅ Upload all handoff docs (APP_OVERVIEW.md, FRONTEND_HANDOFF.md, mock-data/)
+4. ✅ Paste customized `FIGMA_MAKE_PROMPT.md` into Figma Make chat to start
+5. ✅ Build frontend with mock data (no localhost dependency)
+6. ✅ Swap to real API after download (easy toggle in code)
+
+---
+
 ### SEVENTH TASK: Implement Mock Authentication
 
 Since real authentication will be implemented later, create a mock auth system:
