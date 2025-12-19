@@ -69,22 +69,37 @@ async def run_agent_session(
             # Try to extract usage from message if available
             if hasattr(msg, 'usage') and msg.usage:
                 usage = msg.usage
-                
+
                 # Usage can be either an object with attributes or a dict
-                if isinstance(usage, dict):
-                    # Dict format (common with Azure Foundry)
-                    input_tokens = usage.get('input_tokens', 0) or usage.get('prompt_tokens', 0)
-                    output_tokens = usage.get('output_tokens', 0) or usage.get('completion_tokens', 0)
-                else:
-                    # Object format (direct Anthropic API)
-                    input_tokens = getattr(usage, 'input_tokens', 0)
-                    output_tokens = getattr(usage, 'output_tokens', 0)
-                
-                if input_tokens > 0 or output_tokens > 0:
-                    agent_console.add_tokens(input_tokens, output_tokens)
-                    # Debug: show token tracking is working
+                input_tokens = 0
+                output_tokens = 0
+
+                try:
+                    if isinstance(usage, dict):
+                        # Dict format (common with Azure Foundry)
+                        input_tokens = usage.get('input_tokens', 0) or usage.get('prompt_tokens', 0) or 0
+                        output_tokens = usage.get('output_tokens', 0) or usage.get('completion_tokens', 0) or 0
+                    else:
+                        # Object format (direct Anthropic API)
+                        input_tokens = getattr(usage, 'input_tokens', 0) or 0
+                        output_tokens = getattr(usage, 'output_tokens', 0) or 0
+
+                    # Also check for cache-related fields that Azure Foundry might use
+                    if isinstance(usage, dict):
+                        cache_creation = usage.get('cache_creation_input_tokens', 0) or 0
+                        cache_read = usage.get('cache_read_input_tokens', 0) or 0
+                        if cache_creation > 0 or cache_read > 0:
+                            input_tokens += cache_creation + cache_read
+
+                    if input_tokens > 0 or output_tokens > 0:
+                        agent_console.add_tokens(input_tokens, output_tokens)
+                        # Debug: show token tracking is working
+                        if agent_console.verbosity == "verbose":
+                            console.print(f"[dim]📊 Tokens: +{input_tokens}↑ +{output_tokens}↓[/]")
+                except Exception as e:
+                    # If token extraction fails, log in verbose mode but don't crash
                     if agent_console.verbosity == "verbose":
-                        console.print(f"[dim]📊 Tokens: +{input_tokens}↑ +{output_tokens}↓[/]")
+                        console.print(f"[dim yellow]⚠️  Failed to extract tokens: {e}[/]")
 
             # Handle AssistantMessage (text and tool use)
             if msg_type == "AssistantMessage" and hasattr(msg, "content"):
@@ -225,15 +240,25 @@ async def run_agent_session(
         
         # Token usage is tracked during message loop (each msg may have usage)
         # If we still want to check for final usage on client:
-        if hasattr(client, 'usage'):
+        if hasattr(client, 'usage') and client.usage:
             try:
                 usage = client.usage
-                input_tokens = getattr(usage, 'input_tokens', 0)
-                output_tokens = getattr(usage, 'output_tokens', 0)
+                input_tokens = 0
+                output_tokens = 0
+
+                if isinstance(usage, dict):
+                    input_tokens = usage.get('input_tokens', 0) or usage.get('prompt_tokens', 0) or 0
+                    output_tokens = usage.get('output_tokens', 0) or usage.get('completion_tokens', 0) or 0
+                else:
+                    input_tokens = getattr(usage, 'input_tokens', 0) or 0
+                    output_tokens = getattr(usage, 'output_tokens', 0) or 0
+
                 if input_tokens > 0 or output_tokens > 0:
                     agent_console.add_tokens(input_tokens, output_tokens)
-            except:
-                pass  # Token tracking is optional
+            except Exception as e:
+                # Token tracking is optional, don't crash if it fails
+                if agent_console.verbosity == "verbose":
+                    console.print(f"[dim yellow]⚠️  Failed to get final token count: {e}[/]")
             
         console.print()
         return "continue", response_text
