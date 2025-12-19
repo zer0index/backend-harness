@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 
 from agent import run_autonomous_agent
 from console_output import agent_console, print_banner, print_phase_start, print_step
+from logger import RunLogger
 
 
 # Configuration
@@ -323,6 +324,9 @@ def main() -> None:
 - Ready for autonomous agent development"""
                 )
 
+    # Initialize run logger
+    run_logger = RunLogger(project_dir, args.model, args.config)
+
     # Run the agent
     try:
         asyncio.run(
@@ -332,13 +336,21 @@ def main() -> None:
                 max_iterations=args.max_iterations,
                 config_name=args.config,
                 git_enabled=git_enabled,
+                run_logger=run_logger,
             )
         )
     except KeyboardInterrupt:
         agent_console.print_keyboard_interrupt()
+        # Finalize logger on interrupt
+        run_logger.finalize()
     except Exception as e:
         agent_console.print_error("Fatal Error", str(e))
+        # Finalize logger on error
+        run_logger.finalize()
         raise
+    else:
+        # Finalize logger on successful completion
+        run_logger.finalize()
 
 
 if __name__ == "__main__":

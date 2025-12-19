@@ -18,6 +18,7 @@ from client import create_client
 from console_output import agent_console, console
 from progress import print_session_header, print_progress_summary
 from prompts import get_initializer_prompt, get_coding_prompt, copy_spec_to_project, copy_templates_to_project
+from logger import SessionLogger
 
 # Import git_commit function (will be available after autonomous_agent_demo loads)
 # We use a late import to avoid circular dependency
@@ -38,6 +39,7 @@ async def run_agent_session(
     client: ClaudeSDKClient,
     message: str,
     project_dir: Path,
+    session_logger: Optional[SessionLogger] = None,
 ) -> tuple[str, str]:
     """
     Run a single agent session using Claude Agent SDK.
@@ -46,6 +48,7 @@ async def run_agent_session(
         client: Claude SDK client
         message: The prompt to send
         project_dir: Project directory path
+        session_logger: Optional session logger for detailed logging
 
     Returns:
         (status, response_text) where status is:
@@ -53,7 +56,7 @@ async def run_agent_session(
         - "error" if an error occurred
     """
     # Dashboard will show activity - no need for extra messages
-    
+
     try:
         # Send the query
         await client.query(message)
@@ -93,6 +96,11 @@ async def run_agent_session(
 
                     if input_tokens > 0 or output_tokens > 0:
                         agent_console.add_tokens(input_tokens, output_tokens)
+
+                        # Log token usage
+                        if session_logger:
+                            session_logger.log_token_usage(input_tokens, output_tokens)
+
                         # Debug: show token tracking is working
                         if agent_console.verbosity == "verbose":
                             console.print(f"[dim]📊 Tokens: +{input_tokens}↑ +{output_tokens}↓[/]")
@@ -108,14 +116,19 @@ async def run_agent_session(
 
                     if block_type == "TextBlock" and hasattr(block, "text"):
                         response_text += block.text
-                        
+
                         # Agent is thinking - capture and display appropriately
                         text = block.text.strip()
+
+                        # Log agent message
+                        if session_logger and text:
+                            session_logger.log_agent_message(text)
+
                         if text and agent_console.verbosity != "quiet":
                             # End tool batch when agent starts thinking
                             if agent_console.current_batch and agent_console.current_batch.tools:
                                 agent_console.end_tool_batch()
-                            
+
                             # Show thinking in normal/verbose mode
                             if len(text) > 100:
                                 # Long thoughts - show first sentence only in normal mode
@@ -127,7 +140,7 @@ async def run_agent_session(
                             else:
                                 # Short thoughts - show in both modes
                                 agent_console.add_agent_thought(text)
-                                
+
                         last_was_text = True
                         
                     elif block_type == "ToolUseBlock" and hasattr(block, "name"):
@@ -135,8 +148,23 @@ async def run_agent_session(
                         if last_was_text or not agent_console.current_batch:
                             agent_console.start_tool_batch()
                             last_was_text = False
-                            
+
                         current_tool_name = block.name
+
+                        # Log tool start
+                        if session_logger:
+                            tool_input = {}
+                            if hasattr(block, "input"):
+                                # Convert to dict if it's an object
+                                if isinstance(block.input, dict):
+                                    tool_input = block.input
+                                elif hasattr(block.input, '__dict__'):
+                                    tool_input = block.input.__dict__
+                                else:
+                                    tool_input = {"value": str(block.input)}
+
+                            tool_use_id = getattr(block, "id", None)
+                            session_logger.log_tool_start(block.name, tool_input, tool_use_id)
                         
                         # Extract tool details for display
                         tool_details = None
@@ -197,8 +225,22 @@ async def run_agent_session(
                         result_content = getattr(block, "content", "")
                         is_error = getattr(block, "is_error", False)
 
+                        # Log tool result
+                        if session_logger:
+                            session_logger.log_tool_end(result_content, is_error)
+
                         # Check if command was blocked by security hook
                         if "blocked" in str(result_content).lower():
+                            # Log security block
+                            if session_logger and current_tool_name:
+                                # Extract command and reason from result
+                                result_str = str(result_content)
+                                session_logger.log_security_block(
+                                    current_tool_name,
+                                    result_str,
+                                    "Security hook blocked command"
+                                )
+
                             agent_console.update_tool_call(
                                 current_tool_name or "unknown",
                                 "error",
@@ -224,7 +266,7 @@ async def run_agent_session(
                                 "success",
                                 output if len(output) < 100 else output[:100] + "..."
                             )
-                            
+
                             if agent_console.verbosity == "verbose":
                                 if output and len(output) > 0:
                                     if len(output) > 300:
@@ -255,11 +297,15 @@ async def run_agent_session(
 
                 if input_tokens > 0 or output_tokens > 0:
                     agent_console.add_tokens(input_tokens, output_tokens)
+
+                    # Log final token usage
+                    if session_logger:
+                        session_logger.log_token_usage(input_tokens, output_tokens)
             except Exception as e:
                 # Token tracking is optional, don't crash if it fails
                 if agent_console.verbosity == "verbose":
                     console.print(f"[dim yellow]⚠️  Failed to get final token count: {e}[/]")
-            
+
         console.print()
         return "continue", response_text
 
@@ -274,6 +320,7 @@ async def run_autonomous_agent(
     max_iterations: Optional[int] = None,
     config_name: str = 'medium',
     git_enabled: bool = True,
+    run_logger: Optional['RunLogger'] = None,
 ) -> None:
     """
     Run the autonomous agent loop.
@@ -284,6 +331,7 @@ async def run_autonomous_agent(
         max_iterations: Maximum number of iterations (None for unlimited)
         config_name: Configuration size (small, medium, large)
         git_enabled: Whether to commit changes after each iteration
+        run_logger: Optional run logger for detailed logging
     """
     # Info panel
     info = Text()
@@ -358,21 +406,34 @@ async def run_autonomous_agent(
         else:
             prompt = get_coding_prompt(config_name)
 
+        # Start session logger
+        session_logger = None
+        if run_logger:
+            session_logger = run_logger.start_session(iteration)
+
         # Run session with async context manager and live dashboard
         async with client:
             with agent_console.live_session(iteration, max_iterations, project_dir):
-                status, response = await run_agent_session(client, prompt, project_dir)
+                status, response = await run_agent_session(client, prompt, project_dir, session_logger)
 
         # Handle status
         if status == "continue":
-            # Commit changes after each iteration
-            if git_enabled:
-                _git_commit(project_dir, f"Iteration {iteration}: agent progress")
-
             # Check if project is complete (all tests passing)
             from progress import count_passing_tests
 
             passing, total = count_passing_tests(project_dir)
+
+            # Log progress
+            if session_logger:
+                session_logger.log_progress(passing, total)
+
+            # End session logger
+            if run_logger:
+                run_logger.end_session()
+
+            # Commit changes after each iteration
+            if git_enabled:
+                _git_commit(project_dir, f"Iteration {iteration}: agent progress")
 
             # If all tests pass, auto-stop
             if total > 0 and passing == total:
@@ -407,6 +468,16 @@ async def run_autonomous_agent(
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
         elif status == "error":
+            # Log progress even on error
+            from progress import count_passing_tests
+            passing, total = count_passing_tests(project_dir)
+            if session_logger:
+                session_logger.log_progress(passing, total)
+
+            # End session logger
+            if run_logger:
+                run_logger.end_session()
+
             console.print("\n[yellow]Session encountered an error[/]")
             console.print("[dim]Will retry with a fresh session...[/]")
             await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
