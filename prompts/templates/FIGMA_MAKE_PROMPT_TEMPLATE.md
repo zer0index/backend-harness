@@ -80,6 +80,32 @@ Based on APP_OVERVIEW.md, list the **must-have features** we need to implement. 
 - **P1 (Important)**: Key features for full experience
 - **P2 (Nice-to-have)**: Enhancements we can add later
 
+**REQUIRED: Feature Playground Page**
+
+Every application MUST include a dedicated **Playground/Showcase page** accessible via the main navigation:
+
+**Purpose:**
+- Test all features, components, and animations before deployment
+- Demonstrate all UI patterns and interactions in one place
+- Validate responsiveness and accessibility
+- Provide a comprehensive testing environment
+
+**What to include:**
+- 🎨 All UI components (buttons, forms, modals, cards, etc.) with different states
+- 🎭 All animations and transitions used in the app
+- 📊 Sample visualizations (charts, graphs, dashboards) with realistic data
+- 🔄 Interactive features (drag-and-drop, filters, search, sorting)
+- ⚡ Loading states, error states, empty states
+- 📱 Responsive breakpoint testing indicators
+- ♿ Accessibility features (keyboard navigation, screen reader hints)
+
+**Navigation:**
+- Add a "Playground" or "🧪 Playground" tab in the main navigation
+- Can be hidden in production (environment variable toggle)
+- Should use mock data for all demonstrations
+
+This page should be implemented as a **P1 feature** after core functionality is working.
+
 ### 2.2 Creative Frontend Features Using Existing Backend
 
 **IMPORTANT:** The backend is complete and cannot be modified. Your job is to think creatively about what **frontend features** we can build using the **existing API endpoints and data**.
@@ -158,13 +184,20 @@ App
 │   ├── TaskList
 │   ├── TaskDetail
 │   ├── UserProfile
-│   └── Settings
+│   ├── Settings
+│   └── 🧪 Playground (REQUIRED - feature showcase/testing page)
 └── Shared Components
     ├── TaskCard
     ├── UserAvatar
     ├── StatusBadge
     └── LoadingSpinner
 ```
+
+**Note:** The Playground page is REQUIRED in every project. It should:
+- Be accessible from the main navigation
+- Showcase all components, animations, and features
+- Use mock data for demonstrations
+- Include a toggle to hide in production (e.g., `SHOW_PLAYGROUND` env variable)
 
 ### 3.2 State Management Strategy
 
@@ -212,7 +245,10 @@ I propose we implement in this order:
 3. **Core Feature 1** (most critical feature from P0)
 4. **Core Feature 2**
 5. **Core Feature 3**
-6. ...and so on
+6. **Feature Playground Page** (P1 - after core features work)
+7. **Polish & Refinements**
+
+**Note:** The Playground page should be built AFTER core features are working, so you have actual components and features to showcase.
 
 **Does this order make sense, or should we adjust priorities?**
 
