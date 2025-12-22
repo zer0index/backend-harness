@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚀 Autonomous Backend API Generator
+# Autonomous Backend API Generator
 
 **Production-ready FastAPI backends built by AI agents**
 
@@ -9,80 +9,119 @@
 [![Claude Agent SDK](https://img.shields.io/badge/Claude-Agent%20SDK-orange.svg)](https://github.com/anthropics/anthropic-sdk-python)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-*An autonomous coding harness that generates complete FastAPI backends with PostgreSQL, tests, migrations, and frontend handoff docs—all from a simple specification.*
+*An autonomous coding harness that generates complete FastAPI backends with PostgreSQL, comprehensive tests, database migrations, **and complete Figma Make integration**—all from a simple specification.*
 
-[Quick Start](#-quick-start) • [Features](#-what-you-get) • [How It Works](#-how-it-works) • [Examples](#-use-cases)
+[Quick Start](#-quick-start) • [Features](#-what-you-get) • [How It Works](#-how-it-works) • [Figma Make](#-figma-make-integration) • [Logging](#-debugging--logging)
 
 </div>
 
 ---
 
-## ✨ What You Get
+## What You Get
 
 <table>
 <tr>
-<td width="50%" valign="top">
+<td width="33%" valign="top">
 
-### 🎯 **Backend Core**
-- ✅ RESTful API with full CRUD
-- ✅ PostgreSQL + Docker setup
-- ✅ Async SQLAlchemy ORM
-- ✅ Pydantic schemas (v2)
-- ✅ Alembic migrations
-- ✅ Auto-generated OpenAPI docs
-- ✅ Mock auth (JWT-ready)
+### **Backend Core**
+- RESTful API with full CRUD
+- PostgreSQL + Docker setup
+- Async SQLAlchemy ORM
+- Pydantic schemas (v2)
+- Alembic migrations
+- Auto-generated OpenAPI docs
+- Mock auth (JWT-ready)
 
 </td>
-<td width="50%" valign="top">
+<td width="33%" valign="top">
 
-### 🧪 **Quality & Docs**
-- ✅ Comprehensive pytest suite (>80% coverage)
-- ✅ Frontend handoff docs
-- ✅ TypeScript interfaces
-- ✅ Realistic mock data (JSON)
-- ✅ Business workflows guide
-- ✅ Integration examples
-- ✅ OpenAPI spec export
+### **Quality & Testing**
+- Comprehensive pytest suite (>80% coverage)
+- TestClient-based API tests
+- Auto-verification of endpoints
+- Test-driven development
+- Database fixtures
+- Coverage reporting
+- CI/CD ready
+
+</td>
+<td width="33%" valign="top">
+
+### **Frontend Handoff**
+- **Figma Make integration templates**
+- Business workflows guide
+- TypeScript interfaces
+- Realistic mock data (JSON)
+- OpenAPI spec export
+- Ready-to-use coding guidelines
+- Complete integration examples
 
 </td>
 </tr>
 </table>
 
-> **Perfect for:** Generating backends to hand off to frontend tools like Figma Make, v0, or any TypeScript project.
+### **Developer Experience**
+
+- **Live Dashboard**: Real-time visualization with progress bars, token tracking, and file activity
+- **Figma Make Ready**: Auto-generated templates, guidelines, and prompts for seamless frontend integration
+- **Multi-API Support**: Works with Anthropic API or Azure Foundry
+- **Comprehensive Logging**: Detailed session logs with powerful analysis tools
+- **Configurable Sizes**: Test (5-10 tests), Small (20-30), Medium (100-200), Large (300-500)
+- **Auto-completion**: Stops automatically when all tests pass
+- **Rich Console**: Beautiful terminal output with animations and real-time updates
+
+> **Perfect for:** Building production backends and handing them off to Figma Make, v0, Cursor, or any frontend development tool. The complete handoff package ensures frontend teams can start immediately with zero friction.
 
 ---
 
-## 🏃 Quick Start
+## Quick Start
 
 ### Prerequisites
 
 ```bash
 # Install dependencies
-npm install -g @anthropic-ai/claude-code
 pip install -r requirements.txt
 
-# Configure API access (choose one option)
+# Configure API access (choose ONE option)
 
-# Option 1: Direct Anthropic API
+# Option 1: Direct Anthropic API (Recommended)
 export ANTHROPIC_API_KEY='your-key-here'
 # or create .env file with: ANTHROPIC_API_KEY=your-key-here
 
 # Option 2: Azure Foundry
 export AZURE_FOUNDRY_API_KEY='your-azure-key'
 export AZURE_FOUNDRY_BASE_URL='https://your-endpoint.inference.ai.azure.com'
-# or add to .env file:
-#   AZURE_FOUNDRY_API_KEY=your-azure-key
-#   AZURE_FOUNDRY_BASE_URL=https://your-endpoint.inference.ai.azure.com
+export AZURE_FOUNDRY_MODEL_NAME='claude-sonnet-4-5'  # optional
+# or add to .env file
 ```
 
 ### Generate Your API
 
 ```bash
-# Full generation (production-ready)
+# Production-ready API (100-200 tests, 2-4 hours)
 python autonomous_agent_demo.py --project-dir ./my_api
 
-# Quick test (minimal endpoints, 1-3 minutes)
+# Quick test (5-10 tests, 3-5 minutes, perfect for CI/CD validation)
 python autonomous_agent_demo.py --project-dir ./test_run --config test --max-iterations 2
+
+# Small project (20-30 tests, 30-60 minutes)
+python autonomous_agent_demo.py --project-dir ./small_api --config small
+
+# Large enterprise project (300-500 tests, 6-12+ hours)
+python autonomous_agent_demo.py --project-dir ./enterprise_api --config large
+```
+
+### Configuration Options
+
+```bash
+python autonomous_agent_demo.py \
+  --project-dir ./my_api \              # Output directory
+  --config medium \                     # Size: test|small|medium|large
+  --max-iterations 10 \                 # Limit iterations (optional)
+  --model claude-sonnet-4-5-20250929 \  # Claude model (optional)
+  --verbose \                           # Show detailed output
+  --quiet \                             # Minimal output
+  --no-git                              # Skip git commits
 ```
 
 ### Run the Generated API
@@ -99,11 +138,11 @@ source .venv/bin/activate    # or .\.venv\Scripts\Activate.ps1 on Windows
 uvicorn app.main:app --reload --port 8000
 ```
 
-🎉 **Done!** Visit http://localhost:8000/docs for interactive API documentation.
+**Done!** Visit http://localhost:8000/docs for interactive API documentation.
 
 ---
 
-## 🧠 How It Works
+## How It Works
 
 ### Two-Agent Architecture
 
@@ -112,10 +151,12 @@ uvicorn app.main:app --reload --port 8000
 │  Session 1: Initializer Agent                                   │
 ├─────────────────────────────────────────────────────────────────┤
 │  • Reads your app_spec.txt                                       │
-│  • Generates 100-200 test specifications                         │
+│  • Generates test specifications (5-500 based on config)         │
 │  • Creates FastAPI project structure                             │
 │  • Sets up PostgreSQL + Docker + Alembic                         │
-│  • Initializes git repository                                    │
+│  • Generates Figma Make integration templates ⭐ NEW             │
+│  • Creates frontend handoff docs + mock data                     │
+│  • Initializes git repository with .gitignore                    │
 │  • Outputs: feature_list.json (source of truth)                  │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
@@ -124,108 +165,223 @@ uvicorn app.main:app --reload --port 8000
 ├─────────────────────────────────────────────────────────────────┤
 │  • Fresh context each session                                    │
 │  • Implements endpoints: Model → Schema → Service → Router       │
-│  • Writes & runs pytest tests                                    │
+│  • Writes & runs pytest tests with TestClient                    │
 │  • Updates feature_list.json on test pass                        │
-│  • Commits progress to git                                       │
+│  • Commits progress to git with descriptive messages             │
 │  • Auto-continues after 3 seconds (Ctrl+C to pause)              │
+│  • Auto-stops when all tests pass (100% completion)              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Live Dashboard **NEW**
+
+Watch your API being built in real-time with:
+
+- **Progress bar** showing test completion percentage
+- **Current activity** (currently editing `app/models/user.py`)
+- **Agent reasoning** (live thoughts and planning)
+- **Token usage** (real-time input/output tracking per message)
+- **Session stats** (duration, iteration count, total tokens)
+- **File visibility** (see exactly which files are being modified)
+
+The live dashboard updates in real-time with smooth animations and provides complete visibility into the agent's work.
+
 <details>
-<summary><b>⏱️ Timing Expectations</b> (click to expand)</summary>
+<summary><b>Timing Expectations</b> (click to expand)</summary>
 
-| Phase | Duration | Details |
-|-------|----------|---------|
-| **First session** | 3-10 min | Generates 100-200 test specs (may appear to hang—normal!) |
-| **Per iteration** | 5-15 min | Implements endpoints + tests + git commit |
-| **Full API** | Several hours | Depends on spec size (pause/resume anytime) |
+| Config | Tests | First Session | Total Duration | Use Case |
+|--------|-------|--------------|----------------|----------|
+| **test** | 5-10 | 1-2 min | 3-5 min | CI/CD validation, quick demos |
+| **small** | 20-30 | 2-4 min | 30-60 min | Prototypes, MVPs |
+| **medium** | 100-200 | 5-10 min | 2-4 hours | Production apps |
+| **large** | 300-500 | 15-30 min | 6-12+ hours | Enterprise systems |
 
-💡 **Tip:** Reduce test count in `prompts/initializer_prompt.md` (e.g., 20-50) for faster demos.
+**Tips:**
+- First session generates all test specs (watch the live dashboard for progress)
+- Use `--config test` for rapid iteration during development
+- Sessions auto-continue every 3 seconds (pause anytime with Ctrl+C)
+- Resume by running the same command—progress persists via git + feature_list.json
 
 </details>
 
 ---
 
-## 📦 Frontend Handoff Package
+## Figma Make Integration
 
-Every generated backend includes docs perfect for frontend developers:
+Every generated backend includes a **complete Figma Make integration package**, enabling frontend teams to start building immediately without waiting for backend deployment.
 
-| Document | Purpose | Contains |
-|----------|---------|----------|
-| **📋 APP_OVERVIEW.md** | Business context & UX workflows | User roles, step-by-step journeys, screen suggestions, navigation |
-| **🔌 FRONTEND_HANDOFF.md** | Technical integration guide | TypeScript interfaces, endpoint summaries, auth setup, code examples |
-| **🎨 Mock Data (JSON)** | Realistic test data | Users, tasks, tags, comments—ready to import, matches API schemas exactly |
-| **📖 openapi.json** | Machine-readable spec | Import to Postman, Insomnia, or code generators |
+### What's Included
 
-**Why it matters:** Frontend devs can start immediately with mock data, no backend dependency. When ready, swap for real API calls with minimal changes.
+| File | Purpose | Auto-Generated |
+|------|---------|----------------|
+| **guidelines/guideline.md** | Universal coding standards for Figma Make projects | |
+| **docs/FIGMA_MAKE_PROMPT.md** | Project-specific kickoff prompt (customized!) | |
+| **docs/APP_OVERVIEW.md** | Business context & user workflows | |
+| **docs/FRONTEND_HANDOFF.md** | Technical integration guide with TypeScript interfaces | |
+| **docs/mock-data/*.json** | Realistic sample data matching API schemas exactly | |
+| **openapi.json** | Machine-readable API specification | |
+
+### Quick Workflow
+
+**Step 1: Generate Backend**
+```bash
+python autonomous_agent_demo.py --project-dir ./my_api
+```
+
+**Step 2: Create Figma Make Project**
+- Name your project
+- Select React + TypeScript
+
+**Step 3: Copy Universal Guidelines**
+```bash
+# Copy the auto-generated universal guidelines
+cp my_api/guidelines/guideline.md [figma-project]/guidelines/guideline.md
+```
+
+**Step 4: Upload Handoff Docs to Figma Make**
+- Upload `docs/APP_OVERVIEW.md`
+- Upload `docs/FRONTEND_HANDOFF.md`
+- Upload `docs/mock-data/*.json` files
+
+**Step 5: Start Development**
+- Open `docs/FIGMA_MAKE_PROMPT.md` (already customized for your project!)
+- Copy and paste into Figma Make chat
+- AI reviews your specific backend structure
+- Brainstorm frontend features together
+- Build iteratively using mock data
+
+**Step 6: Integrate**
+- When ready, toggle `USE_MOCK_DATA = false`
+- Connect to `http://localhost:8000` (or deployed URL)
+- Everything just works—types match exactly!
+
+### Key Features
+
+**Critical Localhost Constraint**: Figma Make cannot access `localhost`. The guideline template explicitly addresses this with mock data patterns that make development seamless and API integration trivial.
+
+**Auto-Customized Prompts**: The initializer agent automatically generates project-specific Figma Make prompts with:
+- Extracted entity names from `feature_list.json`
+- Workflows from `APP_OVERVIEW.md`
+- Data constraints from Pydantic schemas
+- Field names, enums, and relationships
+- Realistic brainstorming examples
+
+**No Manual Editing Required**: Everything is ready to use immediately.
+
+See [prompts/templates/README_FIGMA_TEMPLATES.md](prompts/templates/README_FIGMA_TEMPLATES.md) for complete documentation.
 
 ---
 
-## 🔒 Security Model
+## Debugging & Logging
 
-Defense-in-depth approach with multiple layers:
+### Comprehensive Session Logs
 
-1. **🏖️ Sandbox**: OS-level isolation for bash commands
-2. **📁 Filesystem Guard**: File ops restricted to project directory only
-3. **✅ Command Allowlist**: Only approved commands can execute
+Every run automatically creates detailed logs for debugging and optimization analysis:
+
+```bash
+project_dir/
+  logs/
+    run_20231219_103045/        # Timestamped run directory
+      session_001.json          # Full session trace
+      session_002.json
+      session_003.json
+      timeline.jsonl            # Streaming event log
+      run_summary.json          # Aggregated statistics
+```
+
+**What's logged:**
+- Every tool call with input/output and precise timing
+- Agent reasoning and decision-making thoughts
+- Token usage (per-message and cumulative)
+- All errors with full context
+- Security blocks with detailed reasons
+- Progress checkpoints
+- **Automatic sensitive data filtering** (API keys, credentials)
+
+### Analyzing Sessions with `analyze_logs.py`
+
+If a session takes unexpectedly long or you want to optimize performance:
+
+```bash
+# Analyze specific session for bottlenecks
+python analyze_logs.py project/logs/run_20231219_103045/session_003.json
+
+# Compare all sessions in a run
+python analyze_logs.py project/logs/run_20231219_103045 --compare
+
+# View detailed event timeline
+python analyze_logs.py project/logs/run_20231219_103045/session_003.json --timeline
+```
+
+**The analyzer identifies:**
+- **Slowest tool calls** (pinpoints bottlenecks)
+- **Repeated operations** (detects stuck loops, e.g., same file edited 20+ times)
+- **Anomalies** (long gaps, high error rates, excessive security blocks)
+- **Token usage breakdown** (by tool, by phase)
+- **Most used tools** (understand agent behavior)
+- **All errors** with context
+
+**Example output:**
+```
+⏱️  Slowest Tool Calls
+┌──────────┬──────────┬────────────────────────┐
+│ Tool     │ Duration │ Input Preview          │
+├──────────┼──────────┼────────────────────────┤
+│ Bash     │ 45.2m    │ pytest tests/          │
+│ Read     │ 12.1m    │ app/models/user.py     │
+│ Edit     │ 8.5m     │ app/routers/v1/tasks.py│
+└──────────┴──────────┴────────────────────────┘
+
+🚨 Potential Issues
+  • File 'task_service.py' modified 23 times (possible stuck loop)
+  • Tool 'Bash' failed 5 times (investigate command issues)
+  • Gap of 15.2 minutes after 'pytest' command (slow test execution)
+```
+
+This analysis is invaluable for:
+- Debugging sessions that take 380+ minutes
+- Optimizing your `app_spec.txt` for faster generation
+- Understanding agent decision patterns
+- Identifying infrastructure bottlenecks (e.g., slow Docker startup)
+
+See **[LOGGING.md](LOGGING.md)** for complete documentation.
+
+---
+
+## Security Model
+
+Defense-in-depth approach with three layers of protection:
+
+1. **Sandbox**: OS-level isolation for bash commands (prevents filesystem escape)
+2. **Filesystem Guard**: File operations restricted to project directory only
+3. **Command Allowlist**: Only pre-approved commands can execute (validated by 116 test cases)
 
 <details>
 <summary><b>Allowed Commands</b> (click to expand)</summary>
 
-- **Files**: `ls`, `cat`, `head`, `tail`, `wc`, `grep`
-- **Python**: `python`, `python3`, `pip`, `pytest`, `coverage`
-- **Server**: `uvicorn`
-- **Database**: `alembic`, `docker`, `docker compose`
-- **Quality**: `ruff`, `black`, `mypy`
-- **VCS**: `git`
-- **Process**: `ps`, `lsof`, `sleep`, `pkill`
+- **File Operations**: `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `cp`, `mkdir`
+- **Python Development**: `python`, `python3`, `pip`, `pytest`, `coverage`
+- **FastAPI Server**: `uvicorn`
+- **Database**: `alembic`, `docker`, `docker-compose` (compose v2)
+- **Code Quality**: `ruff`, `black`, `mypy`
+- **Version Control**: `git`
+- **Process Management**: `ps`, `lsof`, `sleep`, `pkill` (dev processes only)
+- **Init Scripts**: `chmod +x`, `./init.sh`, `./init.ps1`
 
-Edit `security.py` to modify. Run `python test_security.py` to validate (116 tests).
+**Modify:** Edit `ALLOWED_COMMANDS` in `security.py`
+**Validate:** Run `python test/test_security.py` (116 tests should pass)
 
 </details>
+
+Commands blocked by the security hook are logged with detailed explanations. If you need to add a command:
+1. Review its safety implications
+2. Add to `ALLOWED_COMMANDS` in `security.py`
+3. If it needs validation (like `pkill`, `chmod`), add to `COMMANDS_NEEDING_EXTRA_VALIDATION`
+4. Run `python test/test_security.py` to verify
 
 ---
 
-## 🛠️ Configuration
-
-### Command Line Options
-
-```bash
-python autonomous_agent_demo.py \
-  --project-dir ./my_api \           # Output directory
-  --max-iterations 10 \               # Limit iterations (optional)
-  --model claude-sonnet-4-5-20250929  # Claude model (optional)
-```
-
-### Customize Your API
-
-<details>
-<summary><b>Change API Specification</b></summary>
-
-Edit `prompts/app_spec.txt` with your backend requirements. Current example: Task Management API (Users, Tasks, Tags, Comments).
-
-</details>
-
-<details>
-<summary><b>Adjust Test Coverage</b></summary>
-
-Edit `prompts/initializer_prompt.md` and change `100-200 test cases` to your preferred number (e.g., 20-50 for quick demos).
-
-</details>
-
-<details>
-<summary><b>Modify Security Allowlist</b></summary>
-
-Edit `ALLOWED_COMMANDS` in `security.py`, then validate:
-```bash
-python test_security.py  # All 116 tests should pass
-```
-
-</details>
-
----
-
-## 📂 Project Structure
+## Project Structure
 
 <details>
 <summary><b>Generated FastAPI Project</b> (click to expand)</summary>
@@ -237,78 +393,334 @@ my_api/
 │   ├── config.py            # Settings (pydantic-settings)
 │   ├── database.py          # Async SQLAlchemy
 │   ├── models/              # ORM models
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── user.py
+│   │   └── task.py
 │   ├── schemas/             # Pydantic schemas
+│   │   ├── __init__.py
+│   │   ├── user.py
+│   │   └── task.py
 │   ├── routers/v1/          # API endpoints
+│   │   ├── __init__.py
+│   │   ├── users.py
+│   │   └── tasks.py
 │   ├── services/            # Business logic
+│   │   ├── __init__.py
+│   │   ├── user_service.py
+│   │   └── task_service.py
 │   └── dependencies/        # DI (auth, DB session)
+│       ├── __init__.py
+│       ├── auth.py
+│       └── database.py
 ├── tests/
-│   ├── conftest.py          # Pytest fixtures
-│   └── api/v1/              # API tests
+│   ├── __init__.py
+│   ├── conftest.py          # Pytest fixtures (client, db, auth)
+│   └── api/v1/
+│       ├── test_users.py
+│       └── test_tasks.py
 ├── alembic/                 # DB migrations
-├── docs/                    # Frontend handoff
+│   ├── env.py
+│   └── versions/
+├── docs/                    # Frontend handoff ⭐ Enhanced
 │   ├── APP_OVERVIEW.md
 │   ├── FRONTEND_HANDOFF.md
-│   └── mock-data/           # JSON files
-├── docker-compose.yml       # PostgreSQL
-├── feature_list.json        # Test specs (source of truth)
-├── init.sh / init.ps1       # Setup scripts
+│   ├── FIGMA_MAKE_PROMPT.md         # ⭐ NEW - Auto-generated kickoff
+│   └── mock-data/
+│       ├── README.md
+│       ├── users.json       # 15-20 sample users
+│       ├── tasks.json       # 40-50 sample tasks
+│       ├── tags.json        # 8-10 sample tags
+│       └── comments.json    # 25-30 sample comments
+├── guidelines/              # ⭐ NEW - Figma Make integration
+│   └── guideline.md         # Universal coding standards
+├── scripts/
+│   └── generate_mock_data.py
+├── logs/                    # ⭐ Enhanced - Session logs (auto-generated)
+│   └── run_TIMESTAMP/
+│       ├── session_001.json # Full trace with timing
+│       ├── session_002.json
+│       ├── timeline.jsonl   # Streaming events
+│       └── run_summary.json # Aggregated stats
+├── docker-compose.yml       # PostgreSQL service
+├── alembic.ini
+├── pyproject.toml           # Dependencies
+├── .env.example             # Environment template
+├── .gitignore
+├── feature_list.json        # Test specifications (source of truth)
+├── app_spec.txt             # Original specification
+├── init.sh / init.ps1       # Cross-platform setup scripts
+├── openapi.json             # ⭐ Exported API spec
 └── README.md
+```
+
+</details>
+
+<details>
+<summary><b>Harness Structure</b> (click to expand)</summary>
+
+```
+backend-harness/
+├── autonomous_agent_demo.py # Main entry point
+├── agent.py                 # Session orchestration
+├── client.py                # Claude SDK configuration (multi-API support)
+├── security.py              # Bash command validation
+├── logger.py                # Comprehensive logging system ⭐ Enhanced
+├── analyze_logs.py          # Log analysis tool ⭐ NEW
+├── prompts.py               # Prompt loading utilities
+├── progress.py              # Progress tracking
+├── console_output.py        # Rich terminal UI ⭐ Enhanced (live dashboard!)
+├── prompts/
+│   ├── app_spec.txt         # API specification (edit this!)
+│   ├── app_spec_test.txt    # Minimal spec for testing
+│   ├── initializer_prompt.md
+│   ├── coding_prompt.md
+│   └── templates/           # ⭐ NEW - Figma Make integration
+│       ├── APP_OVERVIEW_TEMPLATE.md
+│       ├── FRONTEND_HANDOFF_TEMPLATE.md
+│       ├── MOCK_DATA_README_TEMPLATE.md
+│       ├── FIGMA_MAKE_GUIDELINE_TEMPLATE.md  # ⭐ NEW
+│       ├── FIGMA_MAKE_PROMPT_TEMPLATE.md     # ⭐ NEW
+│       └── README_FIGMA_TEMPLATES.md         # ⭐ NEW
+├── configs/                 # Size configurations
+│   ├── test.json            # 5-10 tests
+│   ├── small.json           # 20-30 tests
+│   ├── medium.json          # 100-200 tests
+│   └── large.json           # 300-500 tests
+├── test/                    # Test suite
+│   ├── test_security.py     # Security validation (116 tests)
+│   ├── test_foundry_connection.py  # ⭐ NEW - Azure Foundry tests
+│   ├── test_live_dashboard_tokens.py  # ⭐ NEW
+│   └── ...
+├── example_specs/           # Example specifications
+├── CLAUDE.md                # Project documentation (for Claude Code)
+├── LOGGING.md               # Logging system guide
+├── QUICK_START.md           # Quick start guide
+├── README.md                # This file
+└── requirements.txt
 ```
 
 </details>
 
 ---
 
-## 💡 Use Cases
+## Use Cases
 
-This harness can generate backends for:
+This harness can generate production-ready backends for:
 
-- 📝 Task/project management
-- 🛒 E-commerce & inventory
-- 📰 Blog/CMS platforms
-- 👥 User management systems
-- 📅 Booking/reservation systems
-- 🔐 Authentication services
-- 📊 Analytics dashboards
+- **Task/Project Management** (Users, Tasks, Projects, Comments)
+- **E-commerce & Inventory** (Products, Orders, Cart, Payments, Reviews)
+- **Blog/CMS Platforms** (Posts, Authors, Categories, Tags, Media)
+- **User Management Systems** (Auth, Roles, Permissions, Profiles)
+- **Booking/Reservation** (Appointments, Resources, Calendar, Availability)
+- **Authentication Services** (OAuth, JWT, SSO, 2FA)
+- **Analytics Dashboards** (Metrics, Reports, Visualizations, Exports)
+- **Healthcare Systems** (Patients, Appointments, Records, Prescriptions)
+- **Education Platforms** (Courses, Students, Assignments, Grades)
+- **Social Networks** (Posts, Friends, Messages, Feeds)
+- **Financial Systems** (Transactions, Accounts, Budgets, Reports)
 - ...any RESTful API with CRUD operations
+
+**Customize:** Edit `prompts/app_spec.txt` with your specific requirements.
 
 ---
 
-## 🆘 Troubleshooting
+## Advanced Configuration
+
+### Project Size Configurations
+
+| Config | Tests | Endpoints | Mock Data | Duration | Best For |
+|--------|-------|-----------|-----------|----------|----------|
+| **test** | 5-10 | 2-3 | Minimal | 3-5 min | CI/CD, demos, rapid validation |
+| **small** | 20-30 | 4-6 | Light | 30-60 min | MVPs, prototypes, quick testing |
+| **medium** | 100-200 | 15-25 | Realistic | 2-4 hrs | Production apps, standard projects |
+| **large** | 300-500 | 40-60 | Comprehensive | 6-12+ hrs | Enterprise systems, complex domains |
+
+Edit configs in `configs/*.json` to customize test counts, endpoint counts, and mock data quantities.
+
+### API Provider Configuration
+
+**Anthropic API (Default)**
+```bash
+# .env file
+ANTHROPIC_API_KEY=your-key-here
+
+# Optional: specify model
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
+```
+
+**Azure Foundry**
+```bash
+# .env file
+AZURE_FOUNDRY_API_KEY=your-azure-key
+AZURE_FOUNDRY_BASE_URL=https://your-endpoint.inference.ai.azure.com
+AZURE_FOUNDRY_MODEL_NAME=claude-sonnet-4-5  # optional
+
+# Test connection
+python test/test_foundry_connection.py
+```
+
+The system auto-detects which API to use based on environment variables. Azure Foundry support includes full token tracking and logging.
+
+### Custom API Specification
+
+<details>
+<summary><b>Modify API Specification</b></summary>
+
+Edit `prompts/app_spec.txt` with your backend requirements:
+
+```
+Task Management API
+
+Core Features:
+- User authentication (mock, JWT-ready)
+- CRUD operations for Tasks
+- Task assignment to users
+- Task status tracking (todo, in_progress, done)
+- Comments on tasks
+- Tags/labels for organization
+
+Database Models:
+- User (id, email, name, created_at)
+- Task (id, title, description, status, user_id, created_at)
+- Comment (id, content, task_id, user_id, created_at)
+- Tag (id, name, color)
+
+API Endpoints:
+- POST /api/v1/users - Create user
+- GET /api/v1/users/{id} - Get user
+- POST /api/v1/tasks - Create task
+- GET /api/v1/tasks - List tasks (with filters)
+- PUT /api/v1/tasks/{id} - Update task
+- DELETE /api/v1/tasks/{id} - Delete task
+...
+```
+
+Current example: **Task Management API** (Users, Tasks, Tags, Comments)
+
+See `example_specs/` for more examples.
+
+</details>
+
+### Modify Security Allowlist
+
+<details>
+<summary><b>Add Allowed Commands</b></summary>
+
+1. Edit `ALLOWED_COMMANDS` in `security.py`:
+```python
+ALLOWED_COMMANDS = {
+    # Add your command
+    "mycmd",
+    ...
+}
+```
+
+2. For commands needing validation (like `chmod`, `pkill`):
+```python
+COMMANDS_NEEDING_EXTRA_VALIDATION = {"mycmd"}
+
+def validate_mycmd_command(command_string: str) -> tuple[bool, str]:
+    # Implement validation logic
+    if not is_safe(command_string):
+        return False, "Reason why it's not safe"
+    return True, ""
+```
+
+3. Validate changes:
+```bash
+python test/test_security.py  # All 116 tests should pass
+```
+
+</details>
+
+---
+
+## Troubleshooting
 
 <details>
 <summary><b>"Appears to hang on first run"</b></summary>
 
-✅ **Normal behavior.** The initializer is generating 100-200 test specifications. Watch for `[Tool: ...]` output to confirm it's working. First session takes 3-10 minutes.
+**Normal behavior.** The initializer is generating test specifications. Watch the live dashboard for activity:
+- Progress bar shows "Initializing project structure..."
+- Tool calls visible (e.g., `Writing feature_list.json`)
+- File activity updates in real-time
+
+First session takes 1-10 minutes depending on config size (test: 1-2min, medium: 5-10min, large: 15-30min).
+
+</details>
+
+<details>
+<summary><b>"Session took 380 minutes—why?"</b></summary>
+
+Use the log analyzer to identify bottlenecks:
+```bash
+python analyze_logs.py project/logs/run_XXXXX/session_NNN.json
+```
+
+**Common causes:**
+- Long-running pytest execution (many tests)
+- Slow database migrations
+- Agent stuck in error loop (same file edited 20+ times)
+- Large file reads/writes
+- Docker startup delays
+
+The analyzer shows:
+- Slowest tool calls (e.g., "pytest took 45 minutes")
+- Repeated operations (e.g., "task_service.py edited 23 times")
+- Long gaps (e.g., "15 minute gap after pytest command")
+- Error patterns (e.g., "5 bash failures")
+
+See **[LOGGING.md](LOGGING.md)** for optimization strategies.
 
 </details>
 
 <details>
 <summary><b>"Command blocked by security hook"</b></summary>
 
-🔒 **Security working as intended.** The agent tried a command not in the allowlist. To permit it:
-1. Add to `ALLOWED_COMMANDS` in `security.py`
-2. Run `python test_security.py` to validate
-3. Restart the agent
+**Security working as intended.** The agent attempted a command not in the allowlist.
+
+**To permit it:**
+1. Review in logs: `project/logs/run_XXXXX/session_NNN.json`
+2. Assess safety implications
+3. If safe, add to `ALLOWED_COMMANDS` in `security.py`
+4. Run `python test/test_security.py` to validate
+5. Restart agent—it will retry the command
 
 </details>
 
 <details>
 <summary><b>"Can't access http://localhost:8000/docs"</b></summary>
 
-⚠️ **Init scripts don't start the server.** After running `init.sh`/`init.ps1`, manually start:
+Init scripts don't start the server (they only set up the environment). Manually start:
+
 ```bash
+cd my_api
+source .venv/bin/activate  # or .\.venv\Scripts\Activate.ps1
 uvicorn app.main:app --reload --port 8000
 ```
+
+Then visit http://localhost:8000/docs
 
 </details>
 
 <details>
 <summary><b>"PostgreSQL connection failed"</b></summary>
 
-🐳 Ensure Docker is running:
+Ensure Docker is running:
 ```bash
+# Check Docker status
+docker ps
+
+# Start PostgreSQL
+cd my_api
 docker compose up -d postgres
+
+# Verify running
+docker compose ps
+
+# Check logs if still failing
+docker compose logs postgres
 ```
 
 </details>
@@ -316,17 +728,121 @@ docker compose up -d postgres
 <details>
 <summary><b>"API key not set"</b></summary>
 
-🔑 Create `.env` file:
+**Option 1 - Anthropic API:**
 ```bash
-ANTHROPIC_API_KEY=your-key-here
+# Create .env file
+echo "ANTHROPIC_API_KEY=your-key-here" > .env
+
+# Or export
+export ANTHROPIC_API_KEY='your-key-here'
 ```
-Or export as environment variable.
+
+**Option 2 - Azure Foundry:**
+```bash
+# Create .env file with all required variables
+cat > .env << EOF
+AZURE_FOUNDRY_API_KEY=your-azure-key
+AZURE_FOUNDRY_BASE_URL=https://your-endpoint.inference.ai.azure.com
+AZURE_FOUNDRY_MODEL_NAME=claude-sonnet-4-5
+EOF
+
+# Test connection
+python test/test_foundry_connection.py
+```
+
+</details>
+
+<details>
+<summary><b>"How do I pause and resume?"</b></summary>
+
+**Pause:** Press `Ctrl+C` during execution (safe, won't corrupt state)
+
+**Resume:** Run the exact same command:
+```bash
+python autonomous_agent_demo.py --project-dir ./my_api
+```
+
+Progress persists via:
+- `feature_list.json` (tracks test completion)
+- Git commits (all code changes)
+- `logs/` directory (complete session history)
+- `claude-progress.txt` (session notes)
+
+The agent picks up exactly where it left off.
+
+</details>
+
+<details>
+<summary><b>"Tests are failing but agent continues?"</b></summary>
+
+**Normal iterative behavior.** The agent follows a TDD approach:
+1. Write test
+2. Run test
+3. If fails → analyze error → fix code → rerun
+4. Repeat until passing
+5. Mark as passing in `feature_list.json` only when verified
+
+Monitor progress:
+```bash
+# Compare all sessions to see improvement
+python analyze_logs.py project/logs/run_XXXXX --compare
+
+# View feature_list.json to see which tests pass
+cat my_api/feature_list.json | grep '"passes": true' | wc -l
+```
+
+Expected behavior: Early sessions have many failures, later sessions have fewer as bugs are fixed.
+
+</details>
+
+<details>
+<summary><b>"Live dashboard not updating?"</b></summary>
+
+**Ensure terminal supports ANSI escape codes:**
+- Windows: Use Windows Terminal (not CMD)
+- macOS/Linux: Any modern terminal works
+- CI/CD: Use `--quiet` flag for plain text output
+
+**Check console_output.py issues:**
+```bash
+# Test dashboard directly
+python test/test_live_dashboard_tokens.py
+```
+
+If issues persist, use `--verbose` for traditional line-by-line output.
 
 </details>
 
 ---
 
-## 🎯 Technology Stack
+## Technology Stack
+
+### Harness (Agent System)
+
+<table>
+<tr>
+<td><b>Agent Framework</b></td>
+<td>Claude Agent SDK (Anthropic)</td>
+</tr>
+<tr>
+<td><b>API Support</b></td>
+<td>Anthropic API, Azure Foundry (auto-detected)</td>
+</tr>
+<tr>
+<td><b>Console UI</b></td>
+<td>Rich (Python terminal formatting with live updates)</td>
+</tr>
+<tr>
+<td><b>Logging</b></td>
+<td>JSON + JSONL (custom comprehensive system)</td>
+</tr>
+<tr>
+<td><b>Security</b></td>
+<td>Multi-layer (Sandbox + Permissions + Allowlist)</td>
+</tr>
+</table>
+
+### Generated Backend
 
 <table>
 <tr>
@@ -351,18 +867,67 @@ Or export as environment variable.
 </tr>
 <tr>
 <td><b>Validation</b></td>
-<td>Pydantic v2</td>
+<td>Pydantic v2 + pydantic-settings</td>
 </tr>
 <tr>
 <td><b>Docs</b></td>
 <td>Auto-generated OpenAPI/Swagger</td>
 </tr>
+<tr>
+<td><b>Mock Data</b></td>
+<td>Faker library (realistic data generation)</td>
+</tr>
 </table>
+
+---
+
+## Documentation
+
+- **[LOGGING.md](LOGGING.md)** - Comprehensive logging system and analysis tools
+- **[QUICK_START.md](QUICK_START.md)** - Quick start guide for testing the harness
+- **[CLAUDE.md](CLAUDE.md)** - Complete architecture and development guide
+- **[prompts/templates/README_FIGMA_TEMPLATES.md](prompts/templates/README_FIGMA_TEMPLATES.md)** - Figma Make integration guide
+- Generated `README.md` in each project - Setup and API usage instructions
+
+---
+
+## Contributing
+
+Contributions welcome! Areas for improvement:
+
+- Additional Figma Make template variations
+- More example specifications (`example_specs/`)
+- Performance optimizations for large projects
+- Alternative database support (MySQL, SQLite, MongoDB)
+- Frontend framework integration examples (Next.js, Vue, Svelte)
+- Docker deployment configurations (Docker Compose, Kubernetes)
+- CI/CD pipeline templates (GitHub Actions, GitLab CI)
+- Additional security validations
+- Log analysis enhancements (ML-based anomaly detection)
+
+---
+
+## License
+
+MIT License - see LICENSE file for details
 
 ---
 
 <div align="center">
 
-**Built with [Claude Agent SDK](https://github.com/anthropics/anthropic-sdk-python) | Star ⭐ if this helped you!**
+**Built with [Claude Agent SDK](https://github.com/anthropics/anthropic-sdk-python)**
+
+**Star if this helped you build better backends faster!**
+
+Made with by developers who love automation
+
+---
+
+**Ready to build production backends in hours instead of weeks?**
+
+```bash
+pip install -r requirements.txt
+python autonomous_agent_demo.py --project-dir ./my_awesome_api
+```
 
 </div>
