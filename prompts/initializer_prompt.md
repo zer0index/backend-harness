@@ -969,16 +969,375 @@ At this point, frontend developers can:
 
 ---
 
-### SEVENTH TASK: Implement Mock Authentication
+### SIXTH-POINT-FIVE: OpenAPI Best Practices (CRITICAL)
 
-Since real authentication will be implemented later, create a mock auth system:
+Before implementing authentication and endpoints, establish these OpenAPI standards that will apply to ALL endpoints:
+
+#### 6.5.1: Standardized Error Responses
+
+Create `app/schemas/common.py` with reusable error and pagination schemas:
+
+```python
+"""Common schemas used across all API endpoints."""
+
+from pydantic import BaseModel, Field
+from typing import Generic, TypeVar, Any
+
+class ErrorResponse(BaseModel):
+    """
+    Standardized error response for all API errors.
+
+    Used for 401, 403, 404, 409, 422, 429, 500 responses.
+    """
+    code: str = Field(..., description="Machine-readable error code (e.g., 'USER_NOT_FOUND')")
+    message: str = Field(..., description="Human-readable error message")
+    details: dict[str, Any] | None = Field(None, description="Additional error context")
+    request_id: str | None = Field(None, description="Request ID for tracing")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "code": "USER_NOT_FOUND",
+                "message": "User with ID 123 not found",
+                "details": {"user_id": 123},
+                "request_id": "req_abc123"
+            }
+        }
+
+
+class MessageResponse(BaseModel):
+    """Simple message response for operations that don't return data."""
+    message: str = Field(..., description="Operation result message")
+
+    class Config:
+        json_schema_extra = {
+            "example": {"message": "User deleted successfully"}
+        }
+
+
+# Pagination (for list endpoints)
+T = TypeVar('T')
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """
+    Standardized pagination response for list endpoints.
+
+    Use this for ALL endpoints that return lists.
+    """
+    items: list[T] = Field(..., description="List of items in this page")
+    total: int = Field(..., description="Total count of all items")
+    limit: int = Field(..., description="Page size requested")
+    offset: int = Field(..., description="Starting position")
+    count: int = Field(..., description="Actual items in this response")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "items": [...],
+                "total": 100,
+                "limit": 20,
+                "offset": 0,
+                "count": 20
+            }
+        }
+```
+
+**Define common HTTP error responses to reuse across endpoints:**
+
+Create `app/schemas/errors.py`:
+
+```python
+"""Common error response definitions for OpenAPI documentation."""
+
+from app.schemas.common import ErrorResponse
+
+# Reusable error responses for OpenAPI
+COMMON_RESPONSES = {
+    401: {
+        "model": ErrorResponse,
+        "description": "Unauthorized - Missing or invalid authentication token",
+        "content": {
+            "application/json": {
+                "example": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Authentication required",
+                }
+            }
+        }
+    },
+    403: {
+        "model": ErrorResponse,
+        "description": "Forbidden - Insufficient permissions for this operation",
+        "content": {
+            "application/json": {
+                "example": {
+                    "code": "FORBIDDEN",
+                    "message": "You do not have permission to perform this action",
+                }
+            }
+        }
+    },
+    404: {
+        "model": ErrorResponse,
+        "description": "Not Found - Requested resource does not exist",
+        "content": {
+            "application/json": {
+                "example": {
+                    "code": "NOT_FOUND",
+                    "message": "Resource not found",
+                }
+            }
+        }
+    },
+    409: {
+        "model": ErrorResponse,
+        "description": "Conflict - Resource already exists or constraint violation",
+        "content": {
+            "application/json": {
+                "example": {
+                    "code": "ALREADY_EXISTS",
+                    "message": "Email already registered",
+                }
+            }
+        }
+    },
+    422: {
+        "model": ErrorResponse,
+        "description": "Validation Error - Invalid request data format or values",
+    },
+    429: {
+        "model": ErrorResponse,
+        "description": "Too Many Requests - Rate limit exceeded",
+        "content": {
+            "application/json": {
+                "example": {
+                    "code": "RATE_LIMIT_EXCEEDED",
+                    "message": "Too many requests, please try again later",
+                }
+            }
+        }
+    },
+}
+```
+
+**Apply these to endpoints:**
+
+```python
+from app.schemas.errors import COMMON_RESPONSES
+
+@router.post(
+    "/users",
+    response_model=UserResponse,
+    status_code=201,
+    operation_id="createUser",
+    responses={
+        409: COMMON_RESPONSES[409],  # Email already exists
+        422: COMMON_RESPONSES[422],  # Validation error
+    }
+)
+async def create_user(user: UserCreate):
+    """Create a new user account."""
+    # ... implementation
+    pass
+
+@router.get(
+    "/users/{user_id}",
+    response_model=UserResponse,
+    operation_id="getUserById",
+    responses={
+        404: COMMON_RESPONSES[404],  # User not found
+    }
+)
+async def get_user(user_id: int):
+    """Get user by ID."""
+    # ... implementation
+    pass
+```
+
+#### 6.5.2: Response Schema Guidelines
+
+**CRITICAL RULE: NEVER return empty response schemas `{}`**
+
+Every endpoint must have EITHER:
+1. **A defined Pydantic response model** (use `response_model=YourSchema`), OR
+2. **HTTP 204 No Content** (use `status_code=204` with no body)
+
+**Examples:**
+
+```python
+# ✅ GOOD: Endpoint with data returns explicit schema
+@router.get("/users/{id}", response_model=UserResponse)
+async def get_user(id: int):
+    return user_data
+
+# ✅ GOOD: Endpoint without data returns 204
+@router.delete("/users/{id}", status_code=204)
+async def delete_user(id: int):
+    # Perform deletion
+    return Response(status_code=204)
+
+# ✅ GOOD: Simple confirmation uses MessageResponse
+from app.schemas.common import MessageResponse
+
+@router.post("/users/{id}/activate", response_model=MessageResponse)
+async def activate_user(id: int):
+    # Perform activation
+    return {"message": "User activated successfully"}
+
+# ❌ BAD: Don't do this (creates empty schema {} in OpenAPI)
+@router.get("/health")
+async def health():
+    return {"status": "ok"}  # Missing response_model!
+```
+
+#### 6.5.3: API Path Naming Conventions
+
+Follow these rules consistently for ALL endpoints:
+
+1. **NO trailing slashes**: `/api/v1/users` ✅ not `/api/v1/users/` ❌
+2. **Lowercase with hyphens**: `/api/v1/user-profiles` ✅ not `/api/v1/userProfiles` ❌
+3. **Plural nouns for collections**: `/api/v1/users` ✅ not `/api/v1/user` ❌
+4. **Singular for single resource**: `/api/v1/users/{id}` ✅
+5. **Action verbs for non-CRUD**: `/api/v1/users/{id}/activate` ✅
+
+**Rationale:** FastAPI treats `/users` and `/users/` as DIFFERENT routes, causing client confusion.
+
+#### 6.5.4: OperationId Naming Convention
+
+Provide explicit, human-readable operation IDs for better SDK generation:
+
+**Pattern:**
+- `{verb}{Resource}` for single items: `getUser`, `updateUser`, `deleteUser`
+- `{verb}{PluralResource}` for collections: `listUsers`, `createUser`
+- `{verb}{Resource}{Action}` for actions: `activateUser`, `resetUserPassword`
+
+**Examples:**
+
+```python
+@router.get("/users", operation_id="listUsers")
+async def list_users(): pass
+
+@router.post("/users", operation_id="createUser")
+async def create_user(): pass
+
+@router.get("/users/{id}", operation_id="getUserById")
+async def get_user(): pass
+
+@router.put("/users/{id}", operation_id="updateUser")
+async def update_user(): pass
+
+@router.delete("/users/{id}", operation_id="deleteUser")
+async def delete_user(): pass
+
+@router.post("/users/{id}/activate", operation_id="activateUser")
+async def activate_user(): pass
+```
+
+**Why this matters:**
+- Stable across code refactors (changing function names won't break generated clients)
+- Cleaner SDK method names
+- Easier to reference in documentation
+
+#### 6.5.5: Pagination for List Endpoints
+
+Use `PaginatedResponse` from `app/schemas/common.py` for ALL list endpoints:
+
+```python
+from fastapi import Query
+from app.schemas.common import PaginatedResponse
+from app.schemas.user import UserResponse
+
+@router.get(
+    "/users",
+    response_model=PaginatedResponse[UserResponse],
+    operation_id="listUsers"
+)
+async def list_users(
+    limit: int = Query(default=20, ge=1, le=100, description="Page size"),
+    offset: int = Query(default=0, ge=0, description="Starting position"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List all users with pagination.
+
+    Returns paginated list of users.
+    """
+    # Get total count
+    total_query = select(func.count()).select_from(User)
+    total_result = await db.execute(total_query)
+    total = total_result.scalar()
+
+    # Get paginated items
+    query = select(User).offset(offset).limit(limit)
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    return {
+        "items": users,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "count": len(users),
+    }
+```
+
+#### 6.5.6: Privacy & Security Schema Guidelines
+
+**NEVER expose internal database IDs in anonymous/discovery contexts.**
+
+If your application has privacy requirements:
+
+```python
+# ❌ BAD: Exposes real user ID in anonymous discovery
+class BuddyCard(BaseModel):
+    candidate_id: int  # Real database ID!
+    name: str
+
+# ✅ GOOD: Uses opaque token instead
+import uuid
+
+class BuddyCard(BaseModel):
+    card_token: str  # Opaque UUID that maps to user internally
+    name: str
+
+# Backend generates token:
+card_token = str(uuid.uuid4())
+# Store mapping: card_token -> user_id in database or cache
+```
+
+**NEVER use untyped dicts for structured data.**
+
+```python
+# ❌ BAD: Untyped settings (creates additionalProperties: true)
+class UserResponse(BaseModel):
+    privacy_settings: dict  # Unknown structure!
+
+# ✅ GOOD: Explicit nested schema
+class PrivacySettings(BaseModel):
+    profile_visible: bool = True
+    show_location: bool = True
+    allow_discovery: bool = True
+
+class UserResponse(BaseModel):
+    privacy_settings: PrivacySettings  # Strongly typed
+```
+
+---
+
+### SEVENTH TASK: Implement Mock Authentication with OpenAPI Security Schemes
+
+Since real authentication will be implemented later, create a mock auth system **with proper OpenAPI documentation**:
 
 **app/dependencies/auth.py**:
 ```python
 """Mock authentication for development."""
 
 from typing import Annotated
-from fastapi import Depends, HTTPException, Header
+from fastapi import Depends, HTTPException, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+# Security scheme for OpenAPI documentation
+security = HTTPBearer()
 
 # Mock user for all requests
 MOCK_USER = {
@@ -989,17 +1348,141 @@ MOCK_USER = {
 }
 
 async def get_current_user(
-    authorization: Annotated[str | None, Header()] = None
+    credentials: Annotated[HTTPAuthorizationCredentials, Security(security)]
 ) -> dict:
     """
     Mock authentication dependency.
 
     Always returns the MOCK_USER for development.
     In production, this will validate JWT tokens.
+
+    Args:
+        credentials: HTTP Bearer token (required for OpenAPI but ignored in mock)
+
+    Returns:
+        Mock user dict with id, email, name, role
     """
     # TODO: Replace with real JWT validation
+    # For now, accept any token and return mock user
     return MOCK_USER
+
+async def get_current_user_optional(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Security(security)] = None
+) -> dict | None:
+    """
+    Optional authentication dependency for public endpoints.
+
+    Returns user if authenticated, None otherwise.
+    """
+    if credentials:
+        return MOCK_USER
+    return None
 ```
+
+**CRITICAL: Configure OpenAPI Security in app/main.py**
+
+When creating your FastAPI app, configure it with proper security schemes and servers:
+
+```python
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(
+    title="Your API Name",  # From app_spec.txt
+    version="1.0.0",
+    description="Description from app_spec.txt",
+    # IMPORTANT: Configure servers for different environments
+    servers=[
+        {
+            "url": "http://localhost:8000",
+            "description": "Development server"
+        },
+        {
+            "url": "https://staging.yourdomain.com",
+            "description": "Staging environment"
+        },
+        {
+            "url": "https://api.yourdomain.com",
+            "description": "Production environment"
+        }
+    ],
+    # Security scheme will be auto-detected from HTTPBearer dependency
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure based on environment
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+**For public endpoints (like /health), explicitly mark as unauthenticated:**
+
+```python
+from fastapi import APIRouter, Response
+from pydantic import BaseModel
+
+router = APIRouter()
+
+class HealthResponse(BaseModel):
+    """Health check response - NEVER use empty schema {}"""
+    status: str
+    version: str
+    environment: str
+
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    operation_id="healthCheck",  # Human-readable operation ID
+    tags=["health"],
+    summary="Health check endpoint",
+    # CRITICAL: Mark as public (no auth required)
+    dependencies=[],  # No auth dependency
+)
+async def health_check():
+    """
+    Health check endpoint - returns API status.
+
+    This endpoint is public and does not require authentication.
+    """
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "environment": "development"
+    }
+```
+
+**For protected endpoints, include the auth dependency:**
+
+```python
+from fastapi import Depends
+from app.dependencies.auth import get_current_user
+
+@router.get(
+    "/users/me",
+    response_model=UserResponse,
+    operation_id="getCurrentUser",  # Human-readable operation ID
+    tags=["users"],
+    summary="Get current user profile",
+    # Protected endpoint - requires authentication
+    dependencies=[Depends(get_current_user)],
+)
+async def get_current_user_profile(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get the currently authenticated user's profile."""
+    return current_user
+```
+
+**Why this matters:**
+- ✅ OpenAPI spec will show proper `securitySchemes.bearerAuth`
+- ✅ Swagger UI will have "Authorize" button
+- ✅ Public endpoints clearly marked with `security: []`
+- ✅ Protected endpoints show lock icon in docs
+- ✅ Generated SDKs will handle auth correctly
 
 ### OPTIONAL: Start Implementation
 

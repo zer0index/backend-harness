@@ -179,23 +179,179 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
     pass
 ```
 
-**4. API Router**
+**4. API Router (WITH OPENAPI BEST PRACTICES)**
+
+**CRITICAL REMINDERS - Follow these OpenAPI standards for EVERY endpoint:**
+
 ```python
 # app/routers/v1/users.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from app.schemas.user import UserCreate, UserResponse
+from app.schemas.common import PaginatedResponse, MessageResponse
+from app.schemas.errors import COMMON_RESPONSES
 from app.dependencies.database import get_db
+from app.dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
-@router.post("/", response_model=UserResponse, status_code=201)
+# ✅ CREATE Endpoint - Follow all standards
+@router.post(
+    "",  # NO trailing slash!
+    response_model=UserResponse,
+    status_code=201,
+    operation_id="createUser",  # Human-readable operation ID
+    summary="Create a new user",
+    responses={
+        409: COMMON_RESPONSES[409],  # Duplicate email
+        422: COMMON_RESPONSES[422],  # Validation error
+    },
+    # Protected endpoint - requires auth
+    dependencies=[Depends(get_current_user)]
+)
 async def create_user(
     user_data: UserCreate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
+    """
+    Create a new user account.
+
+    Requires admin role. Returns created user with ID.
+    """
     # Call service layer
     pass
+
+# ✅ LIST Endpoint - Use PaginatedResponse
+@router.get(
+    "",  # NO trailing slash!
+    response_model=PaginatedResponse[UserResponse],
+    operation_id="listUsers",  # Human-readable operation ID
+    summary="List all users with pagination",
+    dependencies=[Depends(get_current_user)]
+)
+async def list_users(
+    limit: int = Query(default=20, ge=1, le=100, description="Page size"),
+    offset: int = Query(default=0, ge=0, description="Starting position"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List users with pagination.
+
+    Returns paginated list of users.
+    """
+    total = await db.execute(select(func.count()).select_from(User))
+    total_count = total.scalar()
+
+    query = select(User).offset(offset).limit(limit)
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    return {
+        "items": users,
+        "total": total_count,
+        "limit": limit,
+        "offset": offset,
+        "count": len(users),
+    }
+
+# ✅ GET by ID Endpoint
+@router.get(
+    "/{user_id}",  # Use singular in path parameter
+    response_model=UserResponse,
+    operation_id="getUserById",  # Human-readable operation ID
+    summary="Get user by ID",
+    responses={
+        404: COMMON_RESPONSES[404],  # User not found
+    }
+)
+async def get_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get user details by ID."""
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "USER_NOT_FOUND", "message": f"User {user_id} not found"}
+        )
+    return user
+
+# ✅ UPDATE Endpoint
+@router.put(
+    "/{user_id}",
+    response_model=UserResponse,
+    operation_id="updateUser",  # Human-readable operation ID
+    summary="Update user",
+    responses={
+        404: COMMON_RESPONSES[404],  # User not found
+        422: COMMON_RESPONSES[422],  # Validation error
+    }
+)
+async def update_user(
+    user_id: int,
+    user_data: UserUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Update user details."""
+    pass
+
+# ✅ DELETE Endpoint - Use 204 No Content
+@router.delete(
+    "/{user_id}",
+    status_code=204,  # No response body
+    operation_id="deleteUser",  # Human-readable operation ID
+    summary="Delete user",
+    responses={
+        404: COMMON_RESPONSES[404],  # User not found
+    }
+)
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Delete user by ID.
+
+    Returns 204 No Content on success (no body).
+    """
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await db.delete(user)
+    await db.commit()
+    return Response(status_code=204)
+
+# ✅ Action Endpoint - Use verb in path
+@router.post(
+    "/{user_id}/activate",
+    response_model=MessageResponse,  # Simple confirmation
+    operation_id="activateUser",  # Human-readable operation ID
+    summary="Activate user account",
+    responses={
+        404: COMMON_RESPONSES[404],  # User not found
+    }
+)
+async def activate_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Activate a user account."""
+    # Perform activation logic
+    return {"message": "User activated successfully"}
 ```
+
+**OpenAPI Checklist for EVERY endpoint:**
+- ✅ `operation_id` is human-readable (e.g., `"createUser"`, NOT auto-generated)
+- ✅ `response_model` is defined (NEVER empty `{}`)
+- ✅ OR use `status_code=204` for no-body responses
+- ✅ Common error responses documented via `responses={...}`
+- ✅ NO trailing slashes in paths (`"/users"` NOT `"/users/"`)
+- ✅ Use `PaginatedResponse` for list endpoints
+- ✅ Use `MessageResponse` for simple confirmations
+- ✅ Protected endpoints have `dependencies=[Depends(get_current_user)]`
+- ✅ Public endpoints have NO auth dependency
 
 **5. Database Migration**
 ```bash

@@ -733,15 +733,245 @@ A generated project passes if the OpenAPI spec includes:
 
 ---
 
-## Next Steps
+## Testing & Validation Strategy
 
-1. Review this plan
-2. Make any adjustments needed
-3. Start with Phase 1: Update prompts
-4. Test with a sample generation
-5. Iterate based on results
-6. Optionally implement Phase 2: Validator
+### Pre-Implementation Safeguards
+
+**1. Backup Current Prompts**
+```bash
+# Create backups before making changes
+cp prompts/initializer_prompt.md prompts/initializer_prompt.md.backup
+cp prompts/coding_prompt.md prompts/coding_prompt.md.backup
+```
+
+**2. Document Current Behavior**
+- Run a baseline test generation with current prompts
+- Save the generated `openapi.json` as reference
+- Document what currently works
+
+### Testing Approach
+
+#### Test 1: Minimal Harness Functionality Test
+**Purpose:** Ensure basic harness still works
+**Command:**
+```bash
+python autonomous_agent_demo.py --project-dir ./test_openapi_improvements --max-iterations 1
+```
+**Expected Result:**
+- Harness starts successfully
+- Initializer agent runs
+- Creates `feature_list.json`
+- Creates basic FastAPI structure
+- Session completes without errors
+
+#### Test 2: Small Project Generation (5-10 Endpoints)
+**Purpose:** Verify full generation cycle with improvements
+**Command:**
+```bash
+# Create a simple test spec
+cat > ./test_project/app_spec.txt << 'EOF'
+Build a simple task management API with:
+- User CRUD endpoints
+- Task CRUD endpoints
+- Basic authentication
+EOF
+
+python autonomous_agent_demo.py --project-dir ./test_project --size test
+```
+**Expected Result:**
+- Feature list with 5-10 test cases
+- All tests passing
+- Generated backend runs successfully
+- OpenAPI spec includes improvements
+
+#### Test 3: OpenAPI Spec Validation
+**Purpose:** Verify all improvements are present
+
+Check generated `openapi.json`:
+```bash
+cd test_project
+python -m json.tool openapi.json > openapi_formatted.json
+
+# Manual checks:
+# ✅ Has components.securitySchemes.bearerAuth
+# ✅ Has servers array
+# ✅ No empty schemas ({})
+# ✅ Has ErrorResponse schema
+# ✅ Error responses documented (401/403/404/409/422)
+# ✅ No trailing slashes in paths
+# ✅ Has human-readable operationIds
+```
+
+#### Test 4: Generated Backend Functionality
+**Purpose:** Ensure generated code actually works
+
+```bash
+cd test_project
+
+# 1. Initialize environment
+./init.sh  # or ./init.ps1 on Windows
+
+# 2. Run migrations
+alembic upgrade head
+
+# 3. Start server (in background)
+uvicorn app.main:app --reload --port 8000 &
+
+# 4. Run pytest suite
+pytest -v
+
+# 5. Test health endpoint
+curl http://localhost:8000/api/v1/health
+
+# 6. Check OpenAPI docs
+curl http://localhost:8000/openapi.json
+
+# 7. Access Swagger UI
+# Open http://localhost:8000/docs in browser
+```
+
+**Expected Result:**
+- All tests pass
+- Server starts without errors
+- Health endpoint returns proper typed response
+- Swagger UI displays correctly
+- Authentication works as expected
+
+#### Test 5: Backward Compatibility Test
+**Purpose:** Ensure existing projects still work
+
+```bash
+# If you have an existing generated project, verify:
+cd existing_project
+pytest -v  # Should still pass
+uvicorn app.main:app --reload  # Should still run
+```
+
+### Rollback Plan
+
+If issues occur:
+
+**1. Restore original prompts:**
+```bash
+mv prompts/initializer_prompt.md.backup prompts/initializer_prompt.md
+mv prompts/coding_prompt.md.backup prompts/coding_prompt.md
+```
+
+**2. Document the issue:**
+- What broke?
+- At what step?
+- Error messages?
+- Which improvement caused it?
+
+**3. Incremental approach:**
+- Implement one improvement at a time
+- Test after each change
+- Isolate problematic changes
+
+### Continuous Validation
+
+After implementing each improvement section:
+
+1. **Run quick test generation** (1-2 endpoints)
+2. **Check OpenAPI output** for that specific improvement
+3. **Verify code compiles** and runs
+4. **Run pytest** on generated tests
+5. **Git commit** with descriptive message
+
+### Quality Gates
+
+Don't proceed to next improvement unless:
+
+- ✅ Previous test passes
+- ✅ No new errors in generation logs
+- ✅ Generated code follows FastAPI best practices
+- ✅ OpenAPI spec validates with official tools
+- ✅ Generated tests pass
+
+### OpenAPI Spec Validation Tools
+
+Use external validators to catch issues:
+
+```bash
+# Install OpenAPI validator
+npm install -g @ibm-cloud/openapi-ruleset spectral
+
+# Validate generated spec
+cd test_project
+spectral lint openapi.json
+
+# Or use online validator
+# https://apitools.dev/swagger-parser/online/
+```
+
+### Automated Testing Script
+
+Create `test_improvements.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+echo "🧪 Testing OpenAPI Improvements..."
+
+# 1. Backup current prompts
+echo "📦 Creating backups..."
+cp prompts/initializer_prompt.md prompts/initializer_prompt.md.backup
+cp prompts/coding_prompt.md prompts/coding_prompt.md.backup
+
+# 2. Run test generation
+echo "🚀 Running test generation..."
+python autonomous_agent_demo.py --project-dir ./test_openapi --size test --max-iterations 3
+
+# 3. Validate OpenAPI spec
+echo "✅ Validating OpenAPI spec..."
+cd test_openapi
+
+# Check for required improvements
+python << EOF
+import json
+with open('openapi.json') as f:
+    spec = json.load(f)
+
+checks = {
+    'Has security schemes': 'components' in spec and 'securitySchemes' in spec.get('components', {}),
+    'Has servers': 'servers' in spec and len(spec['servers']) > 0,
+    'Has ErrorResponse': 'components' in spec and 'ErrorResponse' in spec.get('components', {}).get('schemas', {}),
+}
+
+for check, passed in checks.items():
+    status = '✅' if passed else '❌'
+    print(f"{status} {check}")
+
+if not all(checks.values()):
+    exit(1)
+EOF
+
+# 4. Test generated backend
+echo "🔧 Testing generated backend..."
+./init.sh
+pytest -v
+
+# 5. Check server starts
+echo "🌐 Testing server startup..."
+timeout 10s uvicorn app.main:app --port 8000 &
+sleep 5
+curl -f http://localhost:8000/api/v1/health || exit 1
+
+echo "✅ All tests passed!"
+```
 
 ---
 
-**Status:** Ready for implementation
+## Next Steps
+
+1. **Review this plan** - Ensure testing strategy is comprehensive
+2. **Create backups** - Preserve current working state
+3. **Start Phase 1** - Update prompts incrementally
+4. **Test continuously** - After each improvement section
+5. **Iterate** - Fix issues as they arise
+6. **Phase 2** - Add validator once prompts are stable
+
+---
+
+**Status:** Ready for implementation with testing safeguards
