@@ -438,7 +438,7 @@ async def run_autonomous_agent(
             # If all tests pass, auto-stop
             if total > 0 and passing == total:
                 success_text = Text()
-                success_text.append("🎉 PROJECT COMPLETE\n\n", style="bold green", justify="center")
+                success_text.append("🎉 PROJECT COMPLETE\n\n", style="bold green")
                 success_text.append(f"✅ All {total} features implemented\n", style="green")
                 success_text.append(f"✅ All tests passing ({passing}/{total})\n\n", style="green")
                 success_text.append("Project is production-ready!", style="bold cyan")
