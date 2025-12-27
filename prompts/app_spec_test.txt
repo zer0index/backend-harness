@@ -1,93 +1,173 @@
-================================================================================
-NOTES API - MINIMAL TEST SPECIFICATION
-================================================================================
+# Document Processing Pipeline — API Specification
 
-OVERVIEW
---------
-A minimal Notes API for pipeline validation testing. This is a stripped-down
-specification designed to test the full development workflow with minimal
-token usage.
+## Overview
+A document processing API that enables users to upload documents and apply various text processing operations. The system provides a job-based architecture for tracking processing requests and retrieving results.
 
-PROJECT GOALS
-- Validate the autonomous agent pipeline end-to-end
-- Test all workflow stages with minimal complexity
-- Fast iteration during development
+---
 
-TECHNOLOGY STACK
-- FastAPI (Python 3.11+)
-- SQLite (in-memory for simplicity)
-- SQLAlchemy 2.0 (async)
-- pytest + pytest-asyncio
+## Technology Stack
+- **Framework:** FastAPI (Python 3.11+)
+- **Database:** SQLite
+- **ORM:** SQLAlchemy 2.0 (async)
+- **Testing:** pytest, pytest-asyncio
 
-================================================================================
-AUTHENTICATION (MOCK)
-================================================================================
+---
 
-Use simple mock authentication via X-User-ID header.
-- If header present: authenticated as that user
-- If header missing: return 401 Unauthorized
+## Authentication
 
-================================================================================
-RESOURCES
-================================================================================
+Authentication is implemented as a **required API key passed via HTTP header**.
 
-1. USERS (mock - no CRUD endpoints needed)
-------------------------------------------
-Fields:
-- id: integer, primary key
-- username: string, unique, max 50 chars
+- **Security scheme:** `X-User-ID`
+- **Type:** API key
+- **Location:** HTTP header
+- **Behavior:**
+  - If present → request is authenticated as that user
+  - If missing or invalid → **401 Unauthorized**
 
-Pre-seed 2 users in database for testing:
-- User 1: id=1, username="alice"
-- User 2: id=2, username="bob"
+### Authentication Rules
+- All endpoints **except** `GET /health` require authentication
+- Authentication is enforced uniformly across the API
 
+---
 
-2. NOTES
---------
-Fields:
-- id: integer, primary key, auto-increment
-- title: string, required, max 100 chars
-- content: text, optional
-- user_id: integer, foreign key to users
-- created_at: datetime, auto-set on create
+## Resources
 
-Business Rules:
-- Users can only see/modify their own notes
-- Title is required and cannot be empty
-- Content is optional (can be null or empty string)
+### 1. Users
+No CRUD endpoints exposed.
 
-================================================================================
-API ENDPOINTS (5 total)
-================================================================================
+**Fields**
+- `id`: integer, primary key
+- `username`: string, unique, max 50 characters
 
-1. GET /health
---------------
-Health check endpoint (no auth required)
+**Pre-seeded Users**
+- User 1: `id = 1`, `username = "alice"`
+- User 2: `id = 2`, `username = "bob"`
 
-Response 200:
+---
+
+### 2. Documents
+
+**Fields**
+- `id`: integer, primary key, auto-increment
+- `filename`: string, required, max 255 characters
+- `content`: text, required
+- `user_id`: integer, foreign key → users.id
+- `created_at`: datetime, auto-set on create
+
+**Business Rules**
+- Users can only access their own documents
+- Filename is required and cannot be empty
+- Content is required and cannot be empty
+
+---
+
+### 3. Jobs
+
+**Fields**
+- `id`: integer, primary key, auto-increment
+- `document_id`: integer, foreign key → documents.id
+- `operation`: string, required, one of the supported operations
+- `status`: enum [`pending`, `completed`, `failed`], default `pending`
+- `result`: JSON, nullable, populated on successful completion
+- `error`: text, nullable, populated on failure
+- `created_at`: datetime, auto-set on create
+- `completed_at`: datetime, nullable, set when job finishes
+
+**Business Rules**
+- Jobs inherit access control from their parent document
+- Users can only view jobs for their own documents
+- Jobs are processed synchronously upon creation
+
+---
+
+## Supported Operations
+
+| Operation | Description | Result Format |
+|-----------|-------------|---------------|
+| `word_count` | Count words, characters, and lines | `{"words": int, "characters": int, "lines": int}` |
+| `extract_emails` | Extract all email addresses from text | `{"emails": [string]}` |
+| `extract_urls` | Extract all URLs from text | `{"urls": [string]}` |
+| `summarize` | Extract first 3 sentences as summary | `{"summary": string}` |
+| `to_uppercase` | Convert entire text to uppercase | `{"text": string}` |
+
+---
+
+## API Endpoints (7 Total)
+
+### 1. `GET /health`
+Health check endpoint.
+
+- **Authentication:** Not required
+
+**Response 200**
+```json
 {
   "status": "healthy",
   "timestamp": "2024-01-01T00:00:00Z"
 }
+```
 
+---
 
-2. GET /notes
--------------
-List all notes for the authenticated user
+### 2. `POST /documents`
+Upload a new document.
 
-Headers: X-User-ID (required)
+- **Authentication:** Required
 
-Query Parameters:
-- limit: integer, default 10, max 50
-- offset: integer, default 0
+**Request Body**
+```json
+{
+  "filename": "report.txt",
+  "content": "Document text content goes here."
+}
+```
 
-Response 200:
+**Response 201**
+```json
+{
+  "id": 1,
+  "filename": "report.txt",
+  "content": "Document text content goes here.",
+  "user_id": 1,
+  "created_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**Response 400**
+```json
+{
+  "error": "validation_error",
+  "message": "Filename is required"
+}
+```
+
+**Response 401**
+```json
+{
+  "error": "unauthorized",
+  "message": "Authentication required"
+}
+```
+
+---
+
+### 3. `GET /documents`
+List all documents for the authenticated user.
+
+- **Authentication:** Required
+
+**Query Parameters**
+- `limit`: integer, default 10, max 50
+- `offset`: integer, default 0
+
+**Response 200**
+```json
 {
   "items": [
     {
       "id": 1,
-      "title": "My Note",
-      "content": "Note content",
+      "filename": "report.txt",
+      "content": "Document text content goes here.",
       "user_id": 1,
       "created_at": "2024-01-01T00:00:00Z"
     }
@@ -96,177 +176,291 @@ Response 200:
   "limit": 10,
   "offset": 0
 }
+```
 
-Response 401 (no X-User-ID header):
+**Response 401**
+```json
 {
   "error": "unauthorized",
-  "message": "X-User-ID header required"
+  "message": "Authentication required"
 }
+```
 
+---
 
-3. POST /notes
---------------
-Create a new note
+### 4. `GET /documents/{id}`
+Retrieve a specific document by ID.
 
-Headers: X-User-ID (required)
+- **Authentication:** Required
 
-Request Body:
-{
-  "title": "My Note",      // required, max 100 chars
-  "content": "Content"     // optional
-}
-
-Response 201:
+**Response 200**
+```json
 {
   "id": 1,
-  "title": "My Note",
-  "content": "Content",
+  "filename": "report.txt",
+  "content": "Document text content goes here.",
   "user_id": 1,
   "created_at": "2024-01-01T00:00:00Z"
 }
+```
 
-Response 400 (validation error):
+**Response 401**
+```json
+{
+  "error": "unauthorized",
+  "message": "Authentication required"
+}
+```
+
+**Response 403**
+```json
+{
+  "error": "forbidden",
+  "message": "You do not have access to this document"
+}
+```
+
+**Response 404**
+```json
+{
+  "error": "not_found",
+  "message": "Document not found"
+}
+```
+
+---
+
+### 5. `DELETE /documents/{id}`
+Delete a document and all associated jobs.
+
+- **Authentication:** Required
+
+**Response 204**
+No content
+
+**Response 401**
+```json
+{
+  "error": "unauthorized",
+  "message": "Authentication required"
+}
+```
+
+**Response 403**
+```json
+{
+  "error": "forbidden",
+  "message": "You do not have access to this document"
+}
+```
+
+**Response 404**
+```json
+{
+  "error": "not_found",
+  "message": "Document not found"
+}
+```
+
+---
+
+### 6. `POST /documents/{id}/jobs`
+Submit a processing job for a document.
+
+- **Authentication:** Required
+
+**Request Body**
+```json
+{
+  "operation": "word_count"
+}
+```
+
+**Response 201** (job completed successfully)
+```json
+{
+  "id": 1,
+  "document_id": 1,
+  "operation": "word_count",
+  "status": "completed",
+  "result": {
+    "words": 5,
+    "characters": 32,
+    "lines": 1
+  },
+  "error": null,
+  "created_at": "2024-01-01T00:00:00Z",
+  "completed_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**Response 400** (invalid operation)
+```json
 {
   "error": "validation_error",
-  "message": "Title is required"
+  "message": "Invalid operation. Supported: word_count, extract_emails, extract_urls, summarize, to_uppercase"
 }
+```
 
-Response 401 (no auth):
+**Response 401**
+```json
 {
   "error": "unauthorized",
-  "message": "X-User-ID header required"
+  "message": "Authentication required"
 }
+```
 
+**Response 403**
+```json
+{
+  "error": "forbidden",
+  "message": "You do not have access to this document"
+}
+```
 
-4. GET /notes/{id}
-------------------
-Get a specific note by ID
+**Response 404**
+```json
+{
+  "error": "not_found",
+  "message": "Document not found"
+}
+```
 
-Headers: X-User-ID (required)
+---
 
-Response 200:
+### 7. `GET /jobs/{id}`
+Retrieve a specific job by ID.
+
+- **Authentication:** Required
+
+**Response 200**
+```json
 {
   "id": 1,
-  "title": "My Note",
-  "content": "Content",
-  "user_id": 1,
-  "created_at": "2024-01-01T00:00:00Z"
+  "document_id": 1,
+  "operation": "word_count",
+  "status": "completed",
+  "result": {
+    "words": 5,
+    "characters": 32,
+    "lines": 1
+  },
+  "error": null,
+  "created_at": "2024-01-01T00:00:00Z",
+  "completed_at": "2024-01-01T00:00:00Z"
 }
+```
 
-Response 401 (no auth):
+**Response 401**
+```json
 {
   "error": "unauthorized",
-  "message": "X-User-ID header required"
+  "message": "Authentication required"
 }
+```
 
-Response 403 (not owner):
+**Response 403**
+```json
 {
   "error": "forbidden",
-  "message": "You don't have access to this note"
+  "message": "You do not have access to this job"
 }
+```
 
-Response 404 (not found):
+**Response 404**
+```json
 {
   "error": "not_found",
-  "message": "Note not found"
+  "message": "Job not found"
 }
+```
 
+---
 
-5. DELETE /notes/{id}
----------------------
-Delete a note
+## Database Schema
 
-Headers: X-User-ID (required)
-
-Response 204: No content
-
-Response 401 (no auth):
-{
-  "error": "unauthorized",
-  "message": "X-User-ID header required"
-}
-
-Response 403 (not owner):
-{
-  "error": "forbidden",
-  "message": "You don't have access to this note"
-}
-
-Response 404 (not found):
-{
-  "error": "not_found",
-  "message": "Note not found"
-}
-
-================================================================================
-DATABASE SCHEMA
-================================================================================
-
+```sql
 CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL
+  id INTEGER PRIMARY KEY,
+  username VARCHAR(50) UNIQUE NOT NULL
 );
 
-CREATE TABLE notes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title VARCHAR(100) NOT NULL,
-    content TEXT,
-    user_id INTEGER NOT NULL REFERENCES users(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  filename VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_notes_user_id ON notes(user_id);
+CREATE TABLE jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  operation VARCHAR(50) NOT NULL,
+  status VARCHAR(20) DEFAULT 'pending',
+  result TEXT,
+  error TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP
+);
 
--- Seed data
-INSERT INTO users (id, username) VALUES (1, 'alice'), (2, 'bob');
+CREATE INDEX idx_documents_user_id ON documents(user_id);
+CREATE INDEX idx_jobs_document_id ON jobs(document_id);
 
-================================================================================
-TESTING REQUIREMENTS
-================================================================================
+INSERT INTO users (id, username) VALUES
+  (1, 'alice'),
+  (2, 'bob');
+```
 
-Minimum 5-10 tests covering:
+---
+
+## Testing Requirements
+
+Minimum 10 tests covering:
 
 1. Health check returns 200
-2. List notes requires auth (401 without header)
-3. Create note with valid data (201)
-4. Create note without title fails (400)
-5. Get note returns correct data
-6. Get note for wrong user returns 403
-7. Delete note works for owner
-8. Delete note for wrong user returns 403
+2. Listing documents without auth returns 401
+3. Creating a document with valid data returns 201
+4. Creating a document without filename returns 400
+5. Creating a document without content returns 400
+6. Getting a document returns correct data
+7. Getting another user's document returns 403
+8. Deleting a document as owner succeeds
+9. Submitting a valid job returns 201 with completed status
+10. Submitting an invalid operation returns 400
+11. Getting a job returns correct result data
+12. Getting another user's job returns 403
 
-Test Structure:
-- Use pytest with pytest-asyncio
-- Use httpx AsyncClient for API testing
-- Tests should be independent (fresh DB per test)
+---
 
-================================================================================
-PROJECT STRUCTURE
-================================================================================
+## Project Structure
 
+```
 /
 ├── app/
 │   ├── __init__.py
-│   ├── main.py           # FastAPI app, routes
-│   ├── models.py         # SQLAlchemy models
-│   ├── schemas.py        # Pydantic schemas
-│   ├── database.py       # DB connection
-│   └── auth.py           # Mock auth dependency
+│   ├── main.py
+│   ├── models.py
+│   ├── schemas.py
+│   ├── database.py
+│   ├── auth.py
+│   └── processors.py
 ├── tests/
 │   ├── __init__.py
-│   ├── conftest.py       # Fixtures
-│   └── test_notes.py     # API tests
+│   ├── conftest.py
+│   └── test_api.py
 ├── requirements.txt
 └── README.md
+```
 
-================================================================================
-SUCCESS CRITERIA
-================================================================================
+---
 
-1. All 5 endpoints implemented and working
-2. All tests passing (5-10 tests)
-3. Proper error handling with consistent JSON responses
-4. Mock auth working correctly
-5. SQLite database with proper schema
+## Success Criteria
 
-================================================================================
+1. All 7 endpoints implemented and functional
+2. All tests passing
+3. All 5 processing operations implemented
+4. Consistent JSON error responses across all endpoints
+5. Authentication enforced on all protected endpoints
+6. User isolation maintained for documents and jobs
+7. Cascading delete removes jobs when document is deleted
