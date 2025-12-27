@@ -458,41 +458,106 @@ Create a git repository and make your first commit with:
 
 Commit message: "Initial setup: FastAPI project structure, feature_list.json, and Docker PostgreSQL"
 
-### SIXTH TASK: Create Lean Frontend Handoff Package
+### SIXTH TASK: Create Frontend Handoff Documentation
 
-Create a minimal, non-redundant handoff package for frontend developers using:
-- **app_spec.txt** (business context - already exists)
-- **openapi.json** (API spec - auto-generated)
-- **mock-data/** (realistic sample data)
-- **QUICKSTART.md** (simple integration guide)
+Create comprehensive documentation for frontend developers (Figma Make) to understand and integrate with the API.
 
-**Philosophy:** Avoid duplication. Use existing sources of truth instead of reformatting them.
+This task creates documentation that will be handed off to Figma Make or other frontend tools to build the UI.
 
-#### 6.1: Setup Directories
+#### 6.1: Create docs/ directory
 
 ```bash
 mkdir -p docs/mock-data
 mkdir -p scripts
 ```
 
-#### 6.2: Copy App Specification
+#### 6.2: Create APP_OVERVIEW.md
 
-Copy the app specification to the handoff package:
+Based on the `app_spec.txt` file you read earlier, create `docs/APP_OVERVIEW.md`.
 
-```bash
-# The app_spec.txt already contains business context, workflows, and feature priorities
-cp app_spec.txt docs/app_spec.txt
+This file provides **business context and user workflows** for frontend developers.
+
+**Structure to follow:**
+1. **Purpose Section** - Extract from app_spec.txt overview (what problem does this solve?)
+2. **User Roles & Permissions** - Extract from app_spec.txt business rules
+3. **Core User Workflows** - Extract from "User Workflows & Journeys" section
+   - Include 5-10 step-by-step workflows showing how users accomplish goals
+   - Include success criteria and error cases for each workflow
+4. **Suggested Screens/Views** - Suggest screens based on workflows and resources
+   - Organize by user role (Public, User, Manager, Admin)
+   - For each screen: describe purpose, key elements, interactions, navigation
+5. **Data Relationships & Display Patterns** - Describe how data should be displayed
+   - List views, detail views, reusable components
+   - Common UI patterns (badges, avatars, etc.)
+6. **Navigation Structure** - Suggest app navigation hierarchy
+7. **Key Features by Priority** - Extract from app_spec.txt priority section
+8. **Design Considerations** - Information hierarchy, responsive behavior
+9. **Integration with Mock Data** - Emphasize using mock data for UI development
+
+**Writing tips:**
+- Write for **UI designers and frontend developers**, not backend developers
+- Focus on **user experience and workflows**, not implementation details
+- Be **specific** about suggested screens and interactions
+- Reference mock data files for each entity
+- Use the templates in `prompts/templates/APP_OVERVIEW_TEMPLATE.md` as a guide
+
+**Example excerpt:**
+```markdown
+# Task Management API - Application Overview
+
+## Purpose
+A task management system that enables teams to create, assign, and track tasks with priorities, due dates, and collaborative comments. Designed for small to medium teams (5-50 users) who need basic project management without complex features.
+
+## User Roles & Permissions
+
+### Admin
+**Capabilities:**
+- Full system access
+- Create/edit/delete any user
+- Manage system settings
+- View all tasks across organization
+
+[etc...]
 ```
 
-**Why include this?**
-- Provides business context (what the app does, who uses it)
-- Explains user workflows and journeys
-- Suggests screens and features
-- Defines feature priorities (MVP vs. nice-to-have)
+#### 6.3: Create FRONTEND_HANDOFF.md
 
-Frontend developers read this to understand **what to build and why**.
+Create `docs/FRONTEND_HANDOFF.md` with technical integration details.
 
-#### 6.3: Generate Mock Data Files
+This file provides **technical API integration guidance** for frontend developers.
+
+**Structure:**
+1. **Quick Start** - How to run the backend locally (commands)
+2. **Authentication** - Current mock auth setup, future JWT plans
+3. **Data Models** - TypeScript/JavaScript interfaces for each entity
+   - Convert Pydantic schemas to TypeScript interfaces
+   - Include all fields with types
+   - Document relationships (has many, belongs to)
+   - Reference mock data file for each entity
+4. **API Endpoints** - Summary of key endpoints by resource
+   - Method + Path
+   - Brief description
+   - Key parameters
+   - Response format example
+   - Common errors
+   - Point to openapi.json for full details
+5. **Common Patterns** - Pagination format, error response format, timestamps
+6. **Example Integration** - Code examples (JavaScript/TypeScript)
+   - How to fetch data with mock data
+   - How to fetch data from real API
+   - How to switch between them
+7. **Testing the API** - How to use Swagger UI, cURL examples
+8. **Resources** - Links to APP_OVERVIEW.md, mock-data/, openapi.json
+
+**IMPORTANT:** Keep this file concise! Don't duplicate the entire OpenAPI spec. Focus on:
+- Getting started quickly
+- Common patterns and conventions
+- Code examples
+- Pointers to full documentation
+
+Use the template in `prompts/templates/FRONTEND_HANDOFF_TEMPLATE.md` as a guide.
+
+#### 6.4: Generate Mock Data Files
 
 Create realistic mock data that perfectly mirrors your data models.
 
@@ -647,40 +712,25 @@ ls -la docs/mock-data/
 
 You should see: `users.json`, `tasks.json`, `tags.json`, `comments.json`
 
-#### 6.4: Create Mock Data README
+#### 6.5: Create Mock Data README
 
 Create `docs/mock-data/README.md` using the template in `prompts/templates/MOCK_DATA_README_TEMPLATE.md`.
 
 This file explains:
 - What each mock data file contains
 - Example records from each file
-- Field types and relationships
-- How to use the mock data in frontend code
+- How to use the mock data in frontend code (with code examples)
+- How to simulate relationships and filtering
+- How to switch between mock data and real API
 
 **Key sections:**
 1. Overview - Why use mock data
-2. Available Files - List each JSON file with examples and field descriptions
-3. How to Use - Code examples showing import and usage
-4. Data Integrity - How data aligns with backend schemas
-
-#### 6.5: Create QUICKSTART.md
-
-Create `docs/QUICKSTART.md` using the template in `prompts/templates/QUICKSTART_TEMPLATE.md`.
-
-This is a **simple 1-page guide** that tells frontend developers:
-1. **What's Included** - Table showing app_spec.txt, openapi.json, mock-data/ and their purposes
-2. **Quick Start Steps**:
-   - Read app_spec.txt for business context
-   - Explore API via Swagger UI or generate TypeScript types from openapi.json
-   - Build UI with mock data
-   - Swap mock data for real API calls when ready
-3. **Key Concepts** - Authentication, pagination, error handling
-4. **Development Workflow** - Design with mock data → integrate with API → test
-5. **Reference Links** - Where to find complete documentation
-
-**Keep it concise!** This should be a 5-minute read that gets developers started quickly.
-
-The template provides all the content - you just need to create the file.
+2. Available Files - List each JSON file with examples
+3. How to Use - Code examples in React/Vue/Svelte
+4. Common Operations - Filtering, sorting, pagination, relationships
+5. Switching to Real API - How to toggle between mock and real data
+6. Data Integrity - Explanation of how data aligns with schemas
+7. Troubleshooting - Common issues and solutions
 
 #### 6.6: Export OpenAPI Specification
 
@@ -713,40 +763,33 @@ ls -lh openapi.json
 Commit the handoff documentation:
 
 ```bash
-git add docs/ scripts/generate_mock_data.py openapi.json
+git add docs/ scripts/generate_mock_data.py
 git status
-git commit -m "Add lean frontend handoff package
+git commit -m "Add frontend handoff documentation and mock data
 
-- Copied app_spec.txt to docs/ (business context and workflows)
-- Created QUICKSTART.md with integration guide
+- Added APP_OVERVIEW.md with user workflows and suggested screens
+- Added FRONTEND_HANDOFF.md with technical integration guide
 - Generated realistic mock data for all entities:
   * users.json (20 users with various roles)
   * tasks.json (50 tasks with assignments and statuses)
   * tags.json (10 tags with colors)
   * comments.json (30 comments on tasks)
 - Created mock data generation script (scripts/generate_mock_data.py)
-- Added mock data field guide (docs/mock-data/README.md)
-- Exported openapi.json (complete API specification)
-- Ready for frontend development (no backend dependency needed)"
+- Added mock data usage guide (docs/mock-data/README.md)
+- Ready for Figma Make handoff"
 ```
 
-**Lean Handoff Package Complete!**
+**Handoff Package Complete!**
 
-At this point, you have created a complete, non-redundant handoff package:
-- ✅ `docs/app_spec.txt` - Business context, workflows, and feature priorities (source: original spec)
-- ✅ `docs/QUICKSTART.md` - Simple 1-page integration guide
+At this point, you have created a complete handoff package:
+- ✅ `docs/APP_OVERVIEW.md` - Business context and workflows for UI designers
+- ✅ `docs/FRONTEND_HANDOFF.md` - Technical integration guide for developers
 - ✅ `docs/mock-data/*.json` - Realistic sample data files
-- ✅ `docs/mock-data/README.md` - Mock data field guide
+- ✅ `docs/mock-data/README.md` - Mock data usage guide
 - ✅ `scripts/generate_mock_data.py` - Script to regenerate mock data
-- ✅ `openapi.json` - Complete API specification (auto-generated by FastAPI)
+- ✅ `openapi.json` - Complete API specification (if available)
 
-**Why this is better:**
-- ✅ No duplication (app_spec.txt is the source of truth for business context)
-- ✅ No manual maintenance (openapi.json is auto-generated)
-- ✅ Less to read (QUICKSTART.md is 1 page vs. multiple long docs)
-- ✅ No sync issues (using source files instead of reformatted copies)
-
-Frontend developers can start building immediately using mock data and refer to openapi.json for API details.
+These files can be handed off to Figma Make or any frontend tool to build the UI without needing the backend running.
 
 ---
 
@@ -800,13 +843,13 @@ Create `docs/FIGMA_MAKE_PROMPT.md` based on `prompts/templates/FIGMA_MAKE_PROMPT
 3. **Key Constraints:** In Phase 1.3, reference the actual constraints from your Pydantic schemas:
    - Required fields from your models
    - Enum values (e.g., TaskStatus: "todo" | "in_progress" | "done")
-   - Validation rules from openapi.json or app_spec.txt
+   - Validation rules from FRONTEND_HANDOFF.md
 
-4. **Core Features:** In Phase 2.1, list the must-have features from app_spec.txt:
+4. **Core Features:** In Phase 2.1, list the must-have features from APP_OVERVIEW.md:
    ```markdown
-   Based on app_spec.txt (Feature Priority section), the must-have features are:
-   - **P0 (Critical)**: [List from app_spec.txt]
-   - **P1 (Important)**: [List from app_spec.txt]
+   Based on APP_OVERVIEW.md, the must-have features are:
+   - **P0 (Critical)**: [List from your APP_OVERVIEW.md]
+   - **P1 (Important)**: [List from your APP_OVERVIEW.md]
    ```
 
 5. **Brainstorming Examples:** In Phase 2.2, provide examples using YOUR actual data fields:
@@ -856,7 +899,7 @@ Tasks (via task_tags junction table)
 
 ### 1.3 Key Constraints
 
-From openapi.json and app_spec.txt:
+From FRONTEND_HANDOFF.md:
 - TaskStatus enum: "todo" | "in_progress" | "done"
 - TaskPriority enum: "low" | "medium" | "high" | "urgent"
 - User.role enum: "user" | "admin"
@@ -870,7 +913,7 @@ From openapi.json and app_spec.txt:
 
 ### 2.1 Core Features Review
 
-Based on app_spec.txt (Feature Priority section), the must-have features are:
+Based on APP_OVERVIEW.md, the must-have features are:
 - **P0 (Critical)**:
   - User authentication and profile management
   - Create, view, update, delete tasks
@@ -919,382 +962,23 @@ Ready for Figma Make frontend development!"
 At this point, frontend developers can:
 1. ✅ Create new Figma Make project
 2. ✅ Copy `guidelines/guideline.md` to their Figma Make `guidelines/` folder
-3. ✅ Upload all handoff docs (app_spec.txt, QUICKSTART.md, openapi.json, mock-data/)
+3. ✅ Upload all handoff docs (APP_OVERVIEW.md, FRONTEND_HANDOFF.md, mock-data/)
 4. ✅ Paste customized `FIGMA_MAKE_PROMPT.md` into Figma Make chat to start
 5. ✅ Build frontend with mock data (no localhost dependency)
 6. ✅ Swap to real API after download (easy toggle in code)
 
 ---
 
-### SIXTH-POINT-FIVE: OpenAPI Best Practices (CRITICAL)
+### SEVENTH TASK: Implement Mock Authentication
 
-Before implementing authentication and endpoints, establish these OpenAPI standards that will apply to ALL endpoints:
-
-#### 6.5.1: Standardized Error Responses
-
-Create `app/schemas/common.py` with reusable error and pagination schemas:
-
-```python
-"""Common schemas used across all API endpoints."""
-
-from pydantic import BaseModel, Field
-from typing import Generic, TypeVar, Any
-
-class ErrorResponse(BaseModel):
-    """
-    Standardized error response for all API errors.
-
-    Used for 401, 403, 404, 409, 422, 429, 500 responses.
-    """
-    code: str = Field(..., description="Machine-readable error code (e.g., 'USER_NOT_FOUND')")
-    message: str = Field(..., description="Human-readable error message")
-    details: dict[str, Any] | None = Field(None, description="Additional error context")
-    request_id: str | None = Field(None, description="Request ID for tracing")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "code": "USER_NOT_FOUND",
-                "message": "User with ID 123 not found",
-                "details": {"user_id": 123},
-                "request_id": "req_abc123"
-            }
-        }
-
-
-class MessageResponse(BaseModel):
-    """Simple message response for operations that don't return data."""
-    message: str = Field(..., description="Operation result message")
-
-    class Config:
-        json_schema_extra = {
-            "example": {"message": "User deleted successfully"}
-        }
-
-
-# Pagination (for list endpoints)
-T = TypeVar('T')
-
-class PaginatedResponse(BaseModel, Generic[T]):
-    """
-    Standardized pagination response for list endpoints.
-
-    Use this for ALL endpoints that return lists.
-    """
-    items: list[T] = Field(..., description="List of items in this page")
-    total: int = Field(..., description="Total count of all items")
-    limit: int = Field(..., description="Page size requested")
-    offset: int = Field(..., description="Starting position")
-    count: int = Field(..., description="Actual items in this response")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "items": [...],
-                "total": 100,
-                "limit": 20,
-                "offset": 0,
-                "count": 20
-            }
-        }
-```
-
-**Define common HTTP error responses to reuse across endpoints:**
-
-Create `app/schemas/errors.py`:
-
-```python
-"""Common error response definitions for OpenAPI documentation."""
-
-from app.schemas.common import ErrorResponse
-
-# Reusable error responses for OpenAPI
-COMMON_RESPONSES = {
-    401: {
-        "model": ErrorResponse,
-        "description": "Unauthorized - Missing or invalid authentication token",
-        "content": {
-            "application/json": {
-                "example": {
-                    "code": "UNAUTHORIZED",
-                    "message": "Authentication required",
-                }
-            }
-        }
-    },
-    403: {
-        "model": ErrorResponse,
-        "description": "Forbidden - Insufficient permissions for this operation",
-        "content": {
-            "application/json": {
-                "example": {
-                    "code": "FORBIDDEN",
-                    "message": "You do not have permission to perform this action",
-                }
-            }
-        }
-    },
-    404: {
-        "model": ErrorResponse,
-        "description": "Not Found - Requested resource does not exist",
-        "content": {
-            "application/json": {
-                "example": {
-                    "code": "NOT_FOUND",
-                    "message": "Resource not found",
-                }
-            }
-        }
-    },
-    409: {
-        "model": ErrorResponse,
-        "description": "Conflict - Resource already exists or constraint violation",
-        "content": {
-            "application/json": {
-                "example": {
-                    "code": "ALREADY_EXISTS",
-                    "message": "Email already registered",
-                }
-            }
-        }
-    },
-    422: {
-        "model": ErrorResponse,
-        "description": "Validation Error - Invalid request data format or values",
-    },
-    429: {
-        "model": ErrorResponse,
-        "description": "Too Many Requests - Rate limit exceeded",
-        "content": {
-            "application/json": {
-                "example": {
-                    "code": "RATE_LIMIT_EXCEEDED",
-                    "message": "Too many requests, please try again later",
-                }
-            }
-        }
-    },
-}
-```
-
-**Apply these to endpoints:**
-
-```python
-from app.schemas.errors import COMMON_RESPONSES
-
-@router.post(
-    "/users",
-    response_model=UserResponse,
-    status_code=201,
-    operation_id="createUser",
-    responses={
-        409: COMMON_RESPONSES[409],  # Email already exists
-        422: COMMON_RESPONSES[422],  # Validation error
-    }
-)
-async def create_user(user: UserCreate):
-    """Create a new user account."""
-    # ... implementation
-    pass
-
-@router.get(
-    "/users/{user_id}",
-    response_model=UserResponse,
-    operation_id="getUserById",
-    responses={
-        404: COMMON_RESPONSES[404],  # User not found
-    }
-)
-async def get_user(user_id: int):
-    """Get user by ID."""
-    # ... implementation
-    pass
-```
-
-#### 6.5.2: Response Schema Guidelines
-
-**CRITICAL RULE: NEVER return empty response schemas `{}`**
-
-Every endpoint must have EITHER:
-1. **A defined Pydantic response model** (use `response_model=YourSchema`), OR
-2. **HTTP 204 No Content** (use `status_code=204` with no body)
-
-**Examples:**
-
-```python
-# ✅ GOOD: Endpoint with data returns explicit schema
-@router.get("/users/{id}", response_model=UserResponse)
-async def get_user(id: int):
-    return user_data
-
-# ✅ GOOD: Endpoint without data returns 204
-@router.delete("/users/{id}", status_code=204)
-async def delete_user(id: int):
-    # Perform deletion
-    return Response(status_code=204)
-
-# ✅ GOOD: Simple confirmation uses MessageResponse
-from app.schemas.common import MessageResponse
-
-@router.post("/users/{id}/activate", response_model=MessageResponse)
-async def activate_user(id: int):
-    # Perform activation
-    return {"message": "User activated successfully"}
-
-# ❌ BAD: Don't do this (creates empty schema {} in OpenAPI)
-@router.get("/health")
-async def health():
-    return {"status": "ok"}  # Missing response_model!
-```
-
-#### 6.5.3: API Path Naming Conventions
-
-Follow these rules consistently for ALL endpoints:
-
-1. **NO trailing slashes**: `/api/v1/users` ✅ not `/api/v1/users/` ❌
-2. **Lowercase with hyphens**: `/api/v1/user-profiles` ✅ not `/api/v1/userProfiles` ❌
-3. **Plural nouns for collections**: `/api/v1/users` ✅ not `/api/v1/user` ❌
-4. **Singular for single resource**: `/api/v1/users/{id}` ✅
-5. **Action verbs for non-CRUD**: `/api/v1/users/{id}/activate` ✅
-
-**Rationale:** FastAPI treats `/users` and `/users/` as DIFFERENT routes, causing client confusion.
-
-#### 6.5.4: OperationId Naming Convention
-
-Provide explicit, human-readable operation IDs for better SDK generation:
-
-**Pattern:**
-- `{verb}{Resource}` for single items: `getUser`, `updateUser`, `deleteUser`
-- `{verb}{PluralResource}` for collections: `listUsers`, `createUser`
-- `{verb}{Resource}{Action}` for actions: `activateUser`, `resetUserPassword`
-
-**Examples:**
-
-```python
-@router.get("/users", operation_id="listUsers")
-async def list_users(): pass
-
-@router.post("/users", operation_id="createUser")
-async def create_user(): pass
-
-@router.get("/users/{id}", operation_id="getUserById")
-async def get_user(): pass
-
-@router.put("/users/{id}", operation_id="updateUser")
-async def update_user(): pass
-
-@router.delete("/users/{id}", operation_id="deleteUser")
-async def delete_user(): pass
-
-@router.post("/users/{id}/activate", operation_id="activateUser")
-async def activate_user(): pass
-```
-
-**Why this matters:**
-- Stable across code refactors (changing function names won't break generated clients)
-- Cleaner SDK method names
-- Easier to reference in documentation
-
-#### 6.5.5: Pagination for List Endpoints
-
-Use `PaginatedResponse` from `app/schemas/common.py` for ALL list endpoints:
-
-```python
-from fastapi import Query
-from app.schemas.common import PaginatedResponse
-from app.schemas.user import UserResponse
-
-@router.get(
-    "/users",
-    response_model=PaginatedResponse[UserResponse],
-    operation_id="listUsers"
-)
-async def list_users(
-    limit: int = Query(default=20, ge=1, le=100, description="Page size"),
-    offset: int = Query(default=0, ge=0, description="Starting position"),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    List all users with pagination.
-
-    Returns paginated list of users.
-    """
-    # Get total count
-    total_query = select(func.count()).select_from(User)
-    total_result = await db.execute(total_query)
-    total = total_result.scalar()
-
-    # Get paginated items
-    query = select(User).offset(offset).limit(limit)
-    result = await db.execute(query)
-    users = result.scalars().all()
-
-    return {
-        "items": users,
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-        "count": len(users),
-    }
-```
-
-#### 6.5.6: Privacy & Security Schema Guidelines
-
-**NEVER expose internal database IDs in anonymous/discovery contexts.**
-
-If your application has privacy requirements:
-
-```python
-# ❌ BAD: Exposes real user ID in anonymous discovery
-class BuddyCard(BaseModel):
-    candidate_id: int  # Real database ID!
-    name: str
-
-# ✅ GOOD: Uses opaque token instead
-import uuid
-
-class BuddyCard(BaseModel):
-    card_token: str  # Opaque UUID that maps to user internally
-    name: str
-
-# Backend generates token:
-card_token = str(uuid.uuid4())
-# Store mapping: card_token -> user_id in database or cache
-```
-
-**NEVER use untyped dicts for structured data.**
-
-```python
-# ❌ BAD: Untyped settings (creates additionalProperties: true)
-class UserResponse(BaseModel):
-    privacy_settings: dict  # Unknown structure!
-
-# ✅ GOOD: Explicit nested schema
-class PrivacySettings(BaseModel):
-    profile_visible: bool = True
-    show_location: bool = True
-    allow_discovery: bool = True
-
-class UserResponse(BaseModel):
-    privacy_settings: PrivacySettings  # Strongly typed
-```
-
----
-
-### SEVENTH TASK: Implement Mock Authentication with OpenAPI Security Schemes
-
-Since real authentication will be implemented later, create a mock auth system **with proper OpenAPI documentation**:
+Since real authentication will be implemented later, create a mock auth system:
 
 **app/dependencies/auth.py**:
 ```python
 """Mock authentication for development."""
 
 from typing import Annotated
-from fastapi import Depends, HTTPException, Security
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
-# Security scheme for OpenAPI documentation
-security = HTTPBearer()
+from fastapi import Depends, HTTPException, Header
 
 # Mock user for all requests
 MOCK_USER = {
@@ -1305,141 +989,17 @@ MOCK_USER = {
 }
 
 async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials, Security(security)]
+    authorization: Annotated[str | None, Header()] = None
 ) -> dict:
     """
     Mock authentication dependency.
 
     Always returns the MOCK_USER for development.
     In production, this will validate JWT tokens.
-
-    Args:
-        credentials: HTTP Bearer token (required for OpenAPI but ignored in mock)
-
-    Returns:
-        Mock user dict with id, email, name, role
     """
     # TODO: Replace with real JWT validation
-    # For now, accept any token and return mock user
     return MOCK_USER
-
-async def get_current_user_optional(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Security(security)] = None
-) -> dict | None:
-    """
-    Optional authentication dependency for public endpoints.
-
-    Returns user if authenticated, None otherwise.
-    """
-    if credentials:
-        return MOCK_USER
-    return None
 ```
-
-**CRITICAL: Configure OpenAPI Security in app/main.py**
-
-When creating your FastAPI app, configure it with proper security schemes and servers:
-
-```python
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-app = FastAPI(
-    title="Your API Name",  # From app_spec.txt
-    version="1.0.0",
-    description="Description from app_spec.txt",
-    # IMPORTANT: Configure servers for different environments
-    servers=[
-        {
-            "url": "http://localhost:8000",
-            "description": "Development server"
-        },
-        {
-            "url": "https://staging.yourdomain.com",
-            "description": "Staging environment"
-        },
-        {
-            "url": "https://api.yourdomain.com",
-            "description": "Production environment"
-        }
-    ],
-    # Security scheme will be auto-detected from HTTPBearer dependency
-)
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Configure based on environment
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
-
-**For public endpoints (like /health), explicitly mark as unauthenticated:**
-
-```python
-from fastapi import APIRouter, Response
-from pydantic import BaseModel
-
-router = APIRouter()
-
-class HealthResponse(BaseModel):
-    """Health check response - NEVER use empty schema {}"""
-    status: str
-    version: str
-    environment: str
-
-@router.get(
-    "/health",
-    response_model=HealthResponse,
-    operation_id="healthCheck",  # Human-readable operation ID
-    tags=["health"],
-    summary="Health check endpoint",
-    # CRITICAL: Mark as public (no auth required)
-    dependencies=[],  # No auth dependency
-)
-async def health_check():
-    """
-    Health check endpoint - returns API status.
-
-    This endpoint is public and does not require authentication.
-    """
-    return {
-        "status": "healthy",
-        "version": "1.0.0",
-        "environment": "development"
-    }
-```
-
-**For protected endpoints, include the auth dependency:**
-
-```python
-from fastapi import Depends
-from app.dependencies.auth import get_current_user
-
-@router.get(
-    "/users/me",
-    response_model=UserResponse,
-    operation_id="getCurrentUser",  # Human-readable operation ID
-    tags=["users"],
-    summary="Get current user profile",
-    # Protected endpoint - requires authentication
-    dependencies=[Depends(get_current_user)],
-)
-async def get_current_user_profile(
-    current_user: dict = Depends(get_current_user)
-):
-    """Get the currently authenticated user's profile."""
-    return current_user
-```
-
-**Why this matters:**
-- ✅ OpenAPI spec will show proper `securitySchemes.bearerAuth`
-- ✅ Swagger UI will have "Authorize" button
-- ✅ Public endpoints clearly marked with `security: []`
-- ✅ Protected endpoints show lock icon in docs
-- ✅ Generated SDKs will handle auth correctly
 
 ### OPTIONAL: Start Implementation
 

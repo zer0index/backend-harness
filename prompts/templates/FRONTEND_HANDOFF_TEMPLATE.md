@@ -123,8 +123,8 @@ interface User {
 `GET /api/v1/users`
 
 **Query Parameters:**
-- `page` (integer, default: 1) - Page number
-- `page_size` (integer, default: 20, max: 100) - Items per page
+- `limit` (integer, default: 20, min: 1, max: 100) - Page size (items per page)
+- `offset` (integer, default: 0, min: 0) - Starting position
 - `role` (string, optional) - Filter by role ("admin", "manager", "user")
 - `is_active` (boolean, optional) - Filter by active status
 
@@ -143,9 +143,9 @@ interface User {
     }
   ],
   "total": 100,
-  "page": 1,
-  "page_size": 20,
-  "total_pages": 5
+  "limit": 20,
+  "offset": 0,
+  "count": 20
 }
 ```
 
@@ -219,21 +219,29 @@ All list endpoints return paginated results in this format:
 {
   "items": [/* array of objects */],
   "total": 100,
-  "page": 1,
-  "page_size": 20,
-  "total_pages": 5
+  "limit": 20,
+  "offset": 0,
+  "count": 20
 }
 ```
 
+**Fields:**
+- `items` - Array of objects in this page
+- `total` - Total count of all items in database
+- `limit` - Page size requested
+- `offset` - Starting position (0-indexed)
+- `count` - Actual number of items returned (len(items))
+
 **Query Parameters:**
-- `page` - Page number (1-indexed, default: 1)
-- `page_size` - Items per page (default: 20, max: 100)
+- `limit` - Items per page (default: 20, max: 100)
+- `offset` - Starting position (0-indexed, default: 0)
 
 **Example:**
 ```javascript
-const response = await fetch('/api/v1/tasks?page=2&page_size=50');
+// Get second page (items 20-39)
+const response = await fetch('/api/v1/tasks?limit=20&offset=20');
 const data = await response.json();
-console.log(`Showing ${data.items.length} of ${data.total} tasks`);
+console.log(`Showing ${data.count} of ${data.total} tasks`);
 ```
 
 ### Error Responses
@@ -242,13 +250,20 @@ All errors follow this consistent format:
 
 ```json
 {
-  "detail": "Human-readable error message",
-  "error_code": "ERROR_TYPE",
-  "field_errors": {
-    "field_name": ["Error description"]
-  }
+  "code": "ERROR_CODE",
+  "message": "Human-readable error message",
+  "details": {
+    "field_name": "Additional error context"
+  },
+  "request_id": "req_abc123"
 }
 ```
+
+**Fields:**
+- `code` - Machine-readable error code (e.g., "USER_NOT_FOUND", "EMAIL_EXISTS")
+- `message` - Human-readable error message
+- `details` - Optional additional context (field errors, validation details, etc.)
+- `request_id` - Optional request ID for tracing
 
 **Common Status Codes:**
 - `200` - Success (GET, PUT)
