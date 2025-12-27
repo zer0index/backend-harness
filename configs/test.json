@@ -6,7 +6,7 @@
     "min_tests": 5,
     "max_tests": 10,
     "min_endpoints": 3,
-    "max_endpoints": 5,
+    "max_endpoints": 7,
     "tests_per_endpoint": "1-2"
   },
 
