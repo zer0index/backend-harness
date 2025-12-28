@@ -1,466 +1,135 @@
-# Document Processing Pipeline — API Specification
+# Document Upload & Processing API --- Product Requirements
 
-## Overview
-A document processing API that enables users to upload documents and apply various text processing operations. The system provides a job-based architecture for tracking processing requests and retrieving results.
+## 1. Overview
 
----
+This service is a minimal backend API that allows users to **upload
+text-based documents** and run **simple processing operations** on those
+uploaded documents.
 
-## Technology Stack
-- **Framework:** FastAPI (Python 3.11+)
-- **Database:** SQLite
-- **ORM:** SQLAlchemy 2.0 (async)
-- **Testing:** pytest, pytest-asyncio
+A document is uploaded once and stored by the system. After upload, the
+same document can be reused to trigger multiple processing operations
+(e.g., counting words, extracting emails, generating a summary), without
+requiring re-upload.
 
----
+The API is intentionally simple and deterministic, designed to support
+basic document analysis and transformation use cases while providing a
+clean foundation for future expansion.
 
-## Authentication
+------------------------------------------------------------------------
 
-Authentication is implemented as a **required API key passed via HTTP header**.
+## 2. Core Workflow
 
-- **Security scheme:** `X-User-ID`
-- **Type:** API key
-- **Location:** HTTP header
-- **Behavior:**
-  - If present → request is authenticated as that user
-  - If missing or invalid → **401 Unauthorized**
+1.  Upload a document\
+2.  Store it as a persistent resource\
+3.  Run one or more processing jobs against it\
+4.  Retrieve structured results
 
-### Authentication Rules
-- All endpoints **except** `GET /health` require authentication
-- Authentication is enforced uniformly across the API
+Documents are/block passive inputs. All processing is performed through
+explicit job requests that reference an uploaded document.
 
----
+------------------------------------------------------------------------
 
-## Resources
+## 3. Key Concepts
 
-### 1. Users
-No CRUD endpoints exposed.
+### Document
 
-**Fields**
-- `id`: integer, primary key
-- `username`: string, unique, max 50 characters
+A document represents uploaded text content provided by a user.\
+It is immutable once uploaded and serves as the input source for all
+processing jobs.
 
-**Pre-seeded Users**
-- User 1: `id = 1`, `username = "alice"`
-- User 2: `id = 2`, `username = "bob"`
+### Job
 
----
-
-### 2. Documents
-
-**Fields**
-- `id`: integer, primary key, auto-increment
-- `filename`: string, required, max 255 characters
-- `content`: text, required
-- `user_id`: integer, foreign key → users.id
-- `created_at`: datetime, auto-set on create
-
-**Business Rules**
-- Users can only access their own documents
-- Filename is required and cannot be empty
-- Content is required and cannot be empty
+A job represents a single processing operation executed against a
+document.\
+Each job captures: - The operation performed - Execution status - Result
+or error output
 
----
+------------------------------------------------------------------------
 
-### 3. Jobs
+## 4. Design Principles
 
-**Fields**
-- `id`: integer, primary key, auto-increment
-- `document_id`: integer, foreign key → documents.id
-- `operation`: string, required, one of the supported operations
-- `status`: enum [`pending`, `completed`, `failed`], default `pending`
-- `result`: JSON, nullable, populated on successful completion
-- `error`: text, nullable, populated on failure
-- `created_at`: datetime, auto-set on create
-- `completed_at`: datetime, nullable, set when job finishes
-
-**Business Rules**
-- Jobs inherit access control from their parent document
-- Users can only view jobs for their own documents
-- Jobs are processed synchronously upon creation
-
----
-
-## Supported Operations
-
-| Operation | Description | Result Format |
-|-----------|-------------|---------------|
-| `word_count` | Count words, characters, and lines | `{"words": int, "characters": int, "lines": int}` |
-| `extract_emails` | Extract all email addresses from text | `{"emails": [string]}` |
-| `extract_urls` | Extract all URLs from text | `{"urls": [string]}` |
-| `summarize` | Extract first 3 sentences as summary | `{"summary": string}` |
-| `to_uppercase` | Convert entire text to uppercase | `{"text": string}` |
-
----
-
-## API Endpoints (7 Total)
-
-### 1. `GET /health`
-Health check endpoint.
-
-- **Authentication:** Not required
-
-**Response 200**
-```json
-{
-  "status": "healthy",
-  "timestamp": "2024-01-01T00:00:00Z"
-}
-```
-
----
-
-### 2. `POST /documents`
-Upload a new document.
-
-- **Authentication:** Required
-
-**Request Body**
-```json
-{
-  "filename": "report.txt",
-  "content": "Document text content goes here."
-}
-```
-
-**Response 201**
-```json
-{
-  "id": 1,
-  "filename": "report.txt",
-  "content": "Document text content goes here.",
-  "user_id": 1,
-  "created_at": "2024-01-01T00:00:00Z"
-}
-```
-
-**Response 400**
-```json
-{
-  "error": "validation_error",
-  "message": "Filename is required"
-}
-```
-
-**Response 401**
-```json
-{
-  "error": "unauthorized",
-  "message": "Authentication required"
-}
-```
-
----
-
-### 3. `GET /documents`
-List all documents for the authenticated user.
-
-- **Authentication:** Required
-
-**Query Parameters**
-- `limit`: integer, default 10, max 50
-- `offset`: integer, default 0
-
-**Response 200**
-```json
-{
-  "items": [
-    {
-      "id": 1,
-      "filename": "report.txt",
-      "content": "Document text content goes here.",
-      "user_id": 1,
-      "created_at": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "total": 1,
-  "limit": 10,
-  "offset": 0
-}
-```
-
-**Response 401**
-```json
-{
-  "error": "unauthorized",
-  "message": "Authentication required"
-}
-```
-
----
-
-### 4. `GET /documents/{id}`
-Retrieve a specific document by ID.
-
-- **Authentication:** Required
-
-**Response 200**
-```json
-{
-  "id": 1,
-  "filename": "report.txt",
-  "content": "Document text content goes here.",
-  "user_id": 1,
-  "created_at": "2024-01-01T00:00:00Z"
-}
-```
-
-**Response 401**
-```json
-{
-  "error": "unauthorized",
-  "message": "Authentication required"
-}
-```
-
-**Response 403**
-```json
-{
-  "error": "forbidden",
-  "message": "You do not have access to this document"
-}
-```
-
-**Response 404**
-```json
-{
-  "error": "not_found",
-  "message": "Document not found"
-}
-```
-
----
-
-### 5. `DELETE /documents/{id}`
-Delete a document and all associated jobs.
-
-- **Authentication:** Required
-
-**Response 204**
-No content
-
-**Response 401**
-```json
-{
-  "error": "unauthorized",
-  "message": "Authentication required"
-}
-```
-
-**Response 403**
-```json
-{
-  "error": "forbidden",
-  "message": "You do not have access to this document"
-}
-```
-
-**Response 404**
-```json
-{
-  "error": "not_found",
-  "message": "Document not found"
-}
-```
-
----
-
-### 6. `POST /documents/{id}/jobs`
-Submit a processing job for a document.
-
-- **Authentication:** Required
-
-**Request Body**
-```json
-{
-  "operation": "word_count"
-}
-```
-
-**Response 201** (job completed successfully)
-```json
-{
-  "id": 1,
-  "document_id": 1,
-  "operation": "word_count",
-  "status": "completed",
-  "result": {
-    "words": 5,
-    "characters": 32,
-    "lines": 1
-  },
-  "error": null,
-  "created_at": "2024-01-01T00:00:00Z",
-  "completed_at": "2024-01-01T00:00:00Z"
-}
-```
-
-**Response 400** (invalid operation)
-```json
-{
-  "error": "validation_error",
-  "message": "Invalid operation. Supported: word_count, extract_emails, extract_urls, summarize, to_uppercase"
-}
-```
-
-**Response 401**
-```json
-{
-  "error": "unauthorized",
-  "message": "Authentication required"
-}
-```
-
-**Response 403**
-```json
-{
-  "error": "forbidden",
-  "message": "You do not have access to this document"
-}
-```
-
-**Response 404**
-```json
-{
-  "error": "not_found",
-  "message": "Document not found"
-}
-```
-
----
-
-### 7. `GET /jobs/{id}`
-Retrieve a specific job by ID.
-
-- **Authentication:** Required
-
-**Response 200**
-```json
-{
-  "id": 1,
-  "document_id": 1,
-  "operation": "word_count",
-  "status": "completed",
-  "result": {
-    "words": 5,
-    "characters": 32,
-    "lines": 1
-  },
-  "error": null,
-  "created_at": "2024-01-01T00:00:00Z",
-  "completed_at": "2024-01-01T00:00:00Z"
-}
-```
-
-**Response 401**
-```json
-{
-  "error": "unauthorized",
-  "message": "Authentication required"
-}
-```
-
-**Response 403**
-```json
-{
-  "error": "forbidden",
-  "message": "You do not have access to this job"
-}
-```
-
-**Response 404**
-```json
-{
-  "error": "not_found",
-  "message": "Job not found"
-}
-```
-
----
-
-## Database Schema
-
-```sql
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY,
-  username VARCHAR(50) UNIQUE NOT NULL
-);
-
-CREATE TABLE documents (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  filename VARCHAR(255) NOT NULL,
-  content TEXT NOT NULL,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE jobs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-  operation VARCHAR(50) NOT NULL,
-  status VARCHAR(20) DEFAULT 'pending',
-  result TEXT,
-  error TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  completed_at TIMESTAMP
-);
-
-CREATE INDEX idx_documents_user_id ON documents(user_id);
-CREATE INDEX idx_jobs_document_id ON jobs(document_id);
-
-INSERT INTO users (id, username) VALUES
-  (1, 'alice'),
-  (2, 'bob');
-```
-
----
-
-## Testing Requirements
-
-Minimum 10 tests covering:
-
-1. Health check returns 200
-2. Listing documents without auth returns 401
-3. Creating a document with valid data returns 201
-4. Creating a document without filename returns 400
-5. Creating a document without content returns 400
-6. Getting a document returns correct data
-7. Getting another user's document returns 403
-8. Deleting a document as owner succeeds
-9. Submitting a valid job returns 201 with completed status
-10. Submitting an invalid operation returns 400
-11. Getting a job returns correct result data
-12. Getting another user's job returns 403
-
----
-
-## Project Structure
-
-```
-/
-├── app/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── models.py
-│   ├── schemas.py
-│   ├── database.py
-│   ├── auth.py
-│   └── processors.py
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py
-│   └── test_api.py
-├── requirements.txt
-└── README.md
-```
-
----
-
-## Success Criteria
-
-1. All 7 endpoints implemented and functional
-2. All tests passing
-3. All 5 processing operations implemented
-4. Consistent JSON error responses across all endpoints
-5. Authentication enforced on all protected endpoints
-6. User isolation maintained for documents and jobs
-7. Cascading delete removes jobs when document is deleted
+-   **Minimal Surface Area**: Only essential endpoints are exposed.
+-   **Upload-First Mental Model**: Documents are uploaded, not authored
+    or edited.
+-   **Reusable Inputs**: Uploaded documents can be processed multiple
+    times.
+-   **Deterministic Processing**: All operations return structured JSON.
+-   **Strong User Isolation**: Users can only access their own data.
+
+------------------------------------------------------------------------
+
+## 5. Authentication
+
+Authentication is handled via a required API key passed in the HTTP
+header.
+
+-   Header: `X-User-ID`
+-   Missing or invalid key results in `401 Unauthorized`
+-   All endpoints except health require authentication
+
+------------------------------------------------------------------------
+
+## 6. Resources
+
+### Documents (Uploaded Files)
+
+Fields: - `id` - `filename` - `content` - `user_id` - `uploaded_at`
+
+Rules: - Documents are immutable after upload - Filename and content are
+required - Users can only access their own documents
+
+### Jobs (Processing Requests)
+
+Fields: - `id` - `document_id` - `operation` - `status` - `result` -
+`error` - `created_at` - `completed_at`
+
+Rules: - Jobs inherit access control from documents - One operation per
+job - Jobs execute synchronously
+
+------------------------------------------------------------------------
+
+## 7. Supported Processing Operations
+
+-   `word_count`
+-   `extract_emails`
+-   `extract_urls`
+-   `summarize`
+-   `to_uppercase`
+
+------------------------------------------------------------------------
+
+## 8. API Endpoints
+
+-   `GET /health`
+-   `POST /documents` --- upload document
+-   `GET /documents`
+-   `GET /documents/{id}`
+-   `DELETE /documents/{id}`
+-   `POST /documents/{id}/jobs`
+-   `GET /jobs/{id}`
+
+------------------------------------------------------------------------
+
+## 9. Scope and Non-Goals
+
+### In Scope
+
+-   Text-only uploads
+-   Simple synchronous processing
+-   Job tracking
+
+### Out of Scope
+
+-   Document editing
+-   Async processing
+-   User management
+-   UI components
+
+------------------------------------------------------------------------
+
+## 10. Success Criteria
+
+-   Documents can be uploaded once and reused
+-   Processing results are deterministic
+-   Access control is enforced
+-   API remains minimal and extensible
